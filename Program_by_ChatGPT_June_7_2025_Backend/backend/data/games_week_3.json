@@ -1,0 +1,72 @@
+[
+  {
+    "date": "Saturday, Aug. 31, 12:NaN AM",
+    "team1": "Oklahoma",
+    "spread1": 7,
+    "team2": "Texas Tech",
+    "spread2": -7
+  },
+  {
+    "date": "Saturday, Aug. 32, 12:NaN AM",
+    "team1": "Georgia",
+    "spread1": 14.5,
+    "team2": "Missouri",
+    "spread2": -14.5
+  },
+  {
+    "date": "Saturday, Aug. 33, 12:NaN AM",
+    "team1": "Florida State",
+    "spread1": -3.5,
+    "team2": "Clemson",
+    "spread2": 3.5
+  },
+  {
+    "date": "Saturday, Aug. 34, 12:NaN AM",
+    "team1": "Michigan",
+    "spread1": 10,
+    "team2": "Wisconsin",
+    "spread2": -10
+  },
+  {
+    "date": "Saturday, Aug. 35, 12:NaN AM",
+    "team1": "LSU",
+    "spread1": -2.5,
+    "team2": "Auburn",
+    "spread2": 2.5
+  },
+  {
+    "date": "Saturday, Aug. 36, 12:NaN AM",
+    "team1": "Notre Dame",
+    "spread1": 5.5,
+    "team2": "Miami",
+    "spread2": -5.5
+  },
+  {
+    "date": "Saturday, Aug. 37, 12:NaN AM",
+    "team1": "Tennessee",
+    "spread1": -6.5,
+    "team2": "South Carolina",
+    "spread2": 6.5
+  },
+  {
+    "date": "Saturday, Aug. 38, 12:NaN AM",
+    "team1": "Alabama",
+    "spread1": 17.5,
+    "team2": "Ole Miss",
+    "spread2": -17.5
+  },
+  {
+    "date": "Saturday, Aug. 39, 12:NaN AM",
+    "team1": "USC",
+    "spread1": -4.5,
+    "team2": "Arizona",
+    "spread2": 4.5
+  },
+  {
+    "date": "Saturday, Aug. 40, 12:NaN AM",
+    "team1": "Oregon",
+    "spread1": 3.5,
+    "team2": "Utah",
+    "spread2": -3.5
+  }
+]

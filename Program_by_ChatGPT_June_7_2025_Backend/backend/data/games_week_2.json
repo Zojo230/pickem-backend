@@ -1,0 +1,72 @@
+[
+  {
+    "date": "Friday, Aug. 29, 8:04 PM",
+    "team1": "Baylor",
+    "spread1": 2.5,
+    "team2": "Auburn",
+    "spread2": -2.5
+  },
+  {
+    "date": "Friday, Aug. 29, 9:34 PM",
+    "team1": "Sam Houston St",
+    "spread1": 13.5,
+    "team2": "UNLV",
+    "spread2": -13.5
+  },
+  {
+    "date": "Friday, Aug. 29, 8:04 PM",
+    "team1": "Colorado",
+    "spread1": 4,
+    "team2": "Georgia Tech",
+    "spread2": -4
+  },
+  {
+    "date": "Friday, Aug. 29, 7:04 PM",
+    "team1": "Michigan State",
+    "spread1": -17.5,
+    "team2": "Western Michigan",
+    "spread2": 17.5
+  },
+  {
+    "date": "Saturday, Aug. 30, 12:04 PM",
+    "team1": "Purdue",
+    "spread1": -16.5,
+    "team2": "Ball State",
+    "spread2": 16.5
+  },
+  {
+    "date": "Saturday, Aug. 30, 3:34 PM",
+    "team1": "Penn State",
+    "spread1": -44,
+    "team2": "Nevada",
+    "spread2": 44
+  },
+  {
+    "date": "Saturday, Aug. 30, 2:34 PM",
+    "team1": "Indiana",
+    "spread1": -23.5,
+    "team2": "Old Dominion",
+    "spread2": 23.5
+  },
+  {
+    "date": "Saturday, Aug. 30, 7:34 PM",
+    "team1": "Michigan",
+    "spread1": -35,
+    "team2": "New Mexico",
+    "spread2": 35
+  },
+  {
+    "date": "Saturday, Aug. 30, 3:34 PM",
+    "team1": "Massachusetts",
+    "spread1": 1,
+    "team2": "Temple",
+    "spread2": -1
+  },
+  {
+    "date": "Saturday, Aug. 30, 12:04 PM",
+    "team1": "Tennessee",
+    "spread1": -12.5,
+    "team2": "Syracuse",
+    "spread2": 12.5
+  }
+]

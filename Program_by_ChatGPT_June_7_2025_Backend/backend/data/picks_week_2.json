@@ -1,0 +1,143 @@
+[
+  {
+    "player": "masterblaster",
+    "pin": "1234",
+    "picks": [
+      {
+        "gameIndex": 0,
+        "pick": "Baylor"
+      },
+      {
+        "gameIndex": 1,
+        "pick": "Sam Houston St"
+      },
+      {
+        "gameIndex": 2,
+        "pick": "Colorado"
+      },
+      {
+        "gameIndex": 3,
+        "pick": "Michigan State"
+      },
+      {
+        "gameIndex": 4,
+        "pick": "Purdue"
+      },
+      {
+        "gameIndex": 5,
+        "pick": "Penn State"
+      },
+      {
+        "gameIndex": 6,
+        "pick": "Indiana"
+      },
+      {
+        "gameIndex": 7,
+        "pick": "Michigan"
+      },
+      {
+        "gameIndex": 8,
+        "pick": "Massachusetts"
+      },
+      {
+        "gameIndex": 9,
+        "pick": "Syracuse"
+      }
+    ],
+    "week": 2
+  },
+  {
+    "player": "Allison",
+    "pin": "5678",
+    "picks": [
+      {
+        "gameIndex": 0,
+        "pick": "Auburn"
+      },
+      {
+        "gameIndex": 1,
+        "pick": "UNLV"
+      },
+      {
+        "gameIndex": 2,
+        "pick": "Georgia Tech"
+      },
+      {
+        "gameIndex": 3,
+        "pick": "Western Michigan"
+      },
+      {
+        "gameIndex": 4,
+        "pick": "Ball State"
+      },
+      {
+        "gameIndex": 5,
+        "pick": "Nevada"
+      },
+      {
+        "gameIndex": 6,
+        "pick": "Old Dominion"
+      },
+      {
+        "gameIndex": 7,
+        "pick": "New Mexico"
+      },
+      {
+        "gameIndex": 8,
+        "pick": "Temple"
+      },
+      {
+        "gameIndex": 9,
+        "pick": "Syracuse"
+      }
+    ],
+    "week": 2
+  },
+  {
+    "player": "Rick",
+    "pin": "9999",
+    "picks": [
+      {
+        "gameIndex": 0,
+        "pick": "Baylor"
+      },
+      {
+        "gameIndex": 1,
+        "pick": "UNLV"
+      },
+      {
+        "gameIndex": 2,
+        "pick": "Colorado"
+      },
+      {
+        "gameIndex": 3,
+        "pick": "Western Michigan"
+      },
+      {
+        "gameIndex": 4,
+        "pick": "Purdue"
+      },
+      {
+        "gameIndex": 5,
+        "pick": "Nevada"
+      },
+      {
+        "gameIndex": 6,
+        "pick": "Indiana"
+      },
+      {
+        "gameIndex": 7,
+        "pick": "New Mexico"
+      },
+      {
+        "gameIndex": 8,
+        "pick": "Massachusetts"
+      },
+      {
+        "gameIndex": 9,
+        "pick": "Syracuse"
+      }
+    ],
+    "week": 2
+  }
+]

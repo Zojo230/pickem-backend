@@ -1,0 +1,35 @@
+[
+  {
+    "player": "masterblaster",
+    "correct": [
+      "Michigan State",
+      "Purdue",
+      "Penn State",
+      "Indiana",
+      "Michigan",
+      "Syracuse"
+    ],
+    "total": 6
+  },
+  {
+    "player": "Allison",
+    "correct": [
+      "Auburn",
+      "UNLV",
+      "Georgia Tech",
+      "Temple",
+      "Syracuse"
+    ],
+    "total": 5
+  },
+  {
+    "player": "Rick",
+    "correct": [
+      "UNLV",
+      "Purdue",
+      "Indiana",
+      "Syracuse"
+    ],
+    "total": 4
+  }
+]

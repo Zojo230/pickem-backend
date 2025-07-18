@@ -1,0 +1,72 @@
+[
+  {
+    "date": "2025-08-28 01:00 PM",
+    "team1": "Saints",
+    "spread1": 0.9,
+    "team2": "Bears",
+    "spread2": -0.9
+  },
+  {
+    "date": "2025-08-29 01:00 PM",
+    "team1": "Dolphins",
+    "spread1": 2.8,
+    "team2": "Eagles",
+    "spread2": -2.8
+  },
+  {
+    "date": "2025-08-30 01:00 PM",
+    "team1": "Giants",
+    "spread1": -0.7,
+    "team2": "Chargers",
+    "spread2": 0.7
+  },
+  {
+    "date": "2025-08-31 01:00 PM",
+    "team1": "Vikings",
+    "spread1": 5.2,
+    "team2": "Bengals",
+    "spread2": -5.2
+  },
+  {
+    "date": "2025-09-01 01:00 PM",
+    "team1": "Patriots",
+    "spread1": -4.8,
+    "team2": "Broncos",
+    "spread2": 4.8
+  },
+  {
+    "date": "2025-09-02 01:00 PM",
+    "team1": "Titans",
+    "spread1": -3.1,
+    "team2": "Seahawks",
+    "spread2": 3.1
+  },
+  {
+    "date": "2025-09-03 01:00 PM",
+    "team1": "Packers",
+    "spread1": -2.3,
+    "team2": "Raiders",
+    "spread2": 2.3
+  },
+  {
+    "date": "2025-09-04 01:00 PM",
+    "team1": "Chiefs",
+    "spread1": -5.6,
+    "team2": "Jets",
+    "spread2": 5.6
+  },
+  {
+    "date": "2025-09-05 01:00 PM",
+    "team1": "Rams",
+    "spread1": -3.3,
+    "team2": "Steelers",
+    "spread2": 3.3
+  },
+  {
+    "date": "2025-09-06 01:00 PM",
+    "team1": "Cowboys",
+    "spread1": -0.6,
+    "team2": "49ers",
+    "spread2": 0.6
+  }
+]

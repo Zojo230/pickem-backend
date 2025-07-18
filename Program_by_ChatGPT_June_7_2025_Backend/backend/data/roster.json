@@ -1,0 +1,5 @@
+[
+  { "name": "masterblaster", "pin": "1234", "balance": 0 },
+  { "name": "allison", "pin": "5678", "balance": 0 },
+  { "name": "rick", "pin": "9999", "balance": 0 }
+]
