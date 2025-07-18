@@ -1,5 +1,3 @@
-
-// Full corrected server.js including all original routes and fixed calculateWinners
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
@@ -28,7 +26,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// Spread Upload
+// ===== Upload Spread =====
 app.post('/api/upload/spread', upload.single('file'), (req, res) => {
   const file = req.file;
   if (!file) return res.status(400).send('No file uploaded.');
@@ -98,7 +96,7 @@ app.post('/api/upload/spread', upload.single('file'), (req, res) => {
   res.send(`✅ Spread uploaded and converted for Week ${week}`);
 });
 
-// Score Upload
+// ===== Upload Scores =====
 app.post('/api/upload/scores', upload.single('file'), (req, res) => {
   const file = req.file;
   if (!file) return res.status(400).send('No file uploaded.');
@@ -120,6 +118,7 @@ app.post('/api/upload/scores', upload.single('file'), (req, res) => {
   res.send(`✅ Scores uploaded and winners calculated for Week ${week}`);
 });
 
+// ===== Submit Picks =====
 app.post('/submit-picks/:week', (req, res) => {
   const week = parseInt(req.params.week);
   const { player, pin, picks } = req.body;
@@ -147,6 +146,7 @@ app.post('/submit-picks/:week', (req, res) => {
   }
 });
 
+// ===== Calculate Winners =====
 function calculateWinners(week) {
   try {
     const picksFile = path.join(dataDir, `picks_week_${week}.json`);
@@ -170,10 +170,7 @@ function calculateWinners(week) {
 
     picksData.forEach(entry => {
       const player = entry.player?.trim();
-      if (!player) {
-        console.warn('⚠️ Missing player name in picks entry:', entry);
-        return;
-      }
+      if (!player) return;
 
       const correct = [];
       const { picks } = entry;
@@ -189,7 +186,6 @@ function calculateWinners(week) {
         const score2 = parseInt(score["Score 2"]);
         const team1Name = score["Team 1"]?.trim();
         const team2Name = score["Team 2"]?.trim();
-
         const spread1 = parseFloat(game.spread1) || 0;
         const spread2 = parseFloat(game.spread2) || 0;
 
@@ -216,13 +212,49 @@ function calculateWinners(week) {
   }
 }
 
-app.get('/api/calculate-winners/:week', (req, res) => {
-  const week = parseInt(req.params.week);
-  if (!week) return res.status(400).send('Invalid week number.');
-  calculateWinners(week);
-  res.send(`✅ Winners calculated for week ${week}`);
+// ===== PUBLIC GET ROUTES =====
+app.get('/api/currentWeek', (req, res) => {
+  const filePath = path.join(dataDir, 'current_week.json');
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Current week not set' });
+
+  try {
+    const data = JSON.parse(fs.readFileSync(filePath));
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to read current week file' });
+  }
 });
 
+app.get('/api/totals', (req, res) => {
+  const filePath = path.join(dataDir, 'totals.json');
+  if (!fs.existsSync(filePath)) return res.json({});
+
+  try {
+    const data = JSON.parse(fs.readFileSync(filePath));
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to read totals file' });
+  }
+});
+
+app.get('/api/games', (req, res) => {
+  const currentWeekPath = path.join(dataDir, 'current_week.json');
+  if (!fs.existsSync(currentWeekPath)) return res.status(404).json({ error: 'Current week not set' });
+
+  try {
+    const current = JSON.parse(fs.readFileSync(currentWeekPath));
+    const week = current.currentWeek;
+    const gamesPath = path.join(dataDir, `games_week_${week}.json`);
+    if (!fs.existsSync(gamesPath)) return res.status(404).json({ error: 'Games not found for current week' });
+
+    const games = JSON.parse(fs.readFileSync(gamesPath));
+    res.json(games);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load games data' });
+  }
+});
+
+// ===== Existing routes preserved below =====
 
 app.post('/api/check-player-picks', (req, res) => {
   const { week, playerName } = req.body;
@@ -234,8 +266,6 @@ app.post('/api/check-player-picks', (req, res) => {
   res.json({ alreadyPicked: found });
 });
 
-
-
 app.post('/api/authenticate', (req, res) => {
   const { gameName, pin } = req.body;
   const filePath = path.join(__dirname, 'data', 'roster.json');
@@ -243,41 +273,33 @@ app.post('/api/authenticate', (req, res) => {
 
   const data = JSON.parse(fs.readFileSync(filePath));
   const player = data.find(p => p.name.toLowerCase() === gameName.toLowerCase() && p.pin === pin);
-  if (player) {
-    res.json({ success: true });
-  } else {
-    res.json({ success: false });
-  }
+  res.json({ success: !!player });
 });
-// Load rules.json and serve it to frontend
+
 app.get('/api/rules', (req, res) => {
   const filePath = path.join(__dirname, 'data', 'rules.json');
   fs.readFile(filePath, 'utf8', (err, data) => {
-    if (err) {
-      console.error('Error reading rules:', err);
-      return res.status(500).json({ error: 'Failed to load rules' });
-    }
+    if (err) return res.status(500).json({ error: 'Failed to load rules' });
     try {
-      const rules = JSON.parse(data);
-      res.json(rules);
-    } catch (parseErr) {
-      console.error('Error parsing rules JSON:', parseErr);
+      res.json(JSON.parse(data));
+    } catch {
       res.status(500).json({ error: 'Invalid rules format' });
     }
   });
 });
+
 app.get('/api/chat', (req, res) => {
   const filePath = path.join(__dirname, 'data', 'chat.json');
   fs.readFile(filePath, 'utf8', (err, data) => {
     if (err) return res.json([]);
     try {
-      const messages = JSON.parse(data);
-      res.json(messages);
+      res.json(JSON.parse(data));
     } catch {
       res.json([]);
     }
   });
 });
+
 app.post('/api/chat', (req, res) => {
   const filePath = path.join(__dirname, 'data', 'chat.json');
   const newMessage = {
