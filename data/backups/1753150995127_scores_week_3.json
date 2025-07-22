@@ -1,0 +1,72 @@
+[
+  {
+    "Date/Time": "2025-09-06 12:00 PM",
+    "Team 1": "Oklahoma",
+    "Score 1": 28,
+    "Team 2": "Texas Tech",
+    "Score 2": 21
+  },
+  {
+    "Date/Time": "2025-09-06 01:00 PM",
+    "Team 1": "Georgia",
+    "Score 1": 35,
+    "Team 2": "Missouri",
+    "Score 2": 17
+  },
+  {
+    "Date/Time": "2025-09-06 02:00 PM",
+    "Team 1": "Florida State",
+    "Score 1": 27,
+    "Team 2": "Clemson",
+    "Score 2": 31
+  },
+  {
+    "Date/Time": "2025-09-06 03:00 PM",
+    "Team 1": "Michigan",
+    "Score 1": 24,
+    "Team 2": "Wisconsin",
+    "Score 2": 31
+  },
+  {
+    "Date/Time": "2025-09-06 04:00 PM",
+    "Team 1": "LSU",
+    "Score 1": 30,
+    "Team 2": "Auburn",
+    "Score 2": 33
+  },
+  {
+    "Date/Time": "2025-09-06 05:00 PM",
+    "Team 1": "Notre Dame",
+    "Score 1": 38,
+    "Team 2": "Miami",
+    "Score 2": 21
+  },
+  {
+    "Date/Time": "2025-09-06 06:00 PM",
+    "Team 1": "Tennessee",
+    "Score 1": 20,
+    "Team 2": "South Carolina",
+    "Score 2": 24
+  },
+  {
+    "Date/Time": "2025-09-06 07:00 PM",
+    "Team 1": "Alabama",
+    "Score 1": 42,
+    "Team 2": "Ole Miss",
+    "Score 2": 17
+  },
+  {
+    "Date/Time": "2025-09-06 08:00 PM",
+    "Team 1": "USC",
+    "Score 1": 34,
+    "Team 2": "Arizona",
+    "Score 2": 30
+  },
+  {
+    "Date/Time": "2025-09-06 09:00 PM",
+    "Team 1": "Oregon",
+    "Score 1": 27,
+    "Team 2": "Utah",
+    "Score 2": 31
+  }
+]
