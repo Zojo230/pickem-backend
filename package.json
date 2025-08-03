@@ -1,9 +1,31 @@
 {
   "dependencies": {
+    "axios": "^1.11.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
+    "form-data": "^4.0.4",
+    "googleapis": "^154.1.0",
     "multer": "^2.0.1",
     "socket.io": "^4.8.1",
     "xlsx": "^0.18.5"
-  }
+  },
+  "name": "program_by_chatgpt_june_7_2025_backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "driveUpload.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Zojo230/pickem-backend.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Zojo230/pickem-backend/issues"
+  },
+  "homepage": "https://github.com/Zojo230/pickem-backend#readme"
 }
