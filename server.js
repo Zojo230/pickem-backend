@@ -1,3 +1,6 @@
+// Force redeploy to update totals.json
+
+const { uploadJsonToDrive } = require('./driveUpload');
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
@@ -6,7 +9,7 @@ const path = require('path');
 const xlsx = require('xlsx');
 
 const app = express();
-const PORT = 4000;
+
 
 app.use(cors());
 app.use(express.json());
@@ -38,6 +41,78 @@ function formatExcelTime(excelTime) {
     return '';
   }
 }
+const calculateTotalWinners = (week) => {
+  const scoresPath = path.join(dataDir, `scores_week_${week}.json`);
+  const gamesPath = path.join(dataDir, `games_week_${week}.json`);
+  const detailPath = path.join(dataDir, `winners_detail_week_${week}.json`);
+  const winnersPath = path.join(dataDir, `declaredwinners_week_${week}.json`);
+
+  if (!fs.existsSync(scoresPath) || !fs.existsSync(gamesPath)) {
+    console.log(`❌ Missing scores or games file for Week ${week}`);
+    return;
+  }
+
+  const normalize = str => str
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .replace(/state$/i, 'st')
+    .toLowerCase();
+
+  const scores = JSON.parse(fs.readFileSync(scoresPath));
+  const games = JSON.parse(fs.readFileSync(gamesPath));
+
+  const detail = [];
+  const declaredWinners = [];
+
+  for (const game of games) {
+    const g1 = normalize(game.team1);
+    const g2 = normalize(game.team2);
+
+    const match = scores.find(s => {
+      const s1 = normalize(s.team1);
+      const s2 = normalize(s.team2);
+      return (s1 === g1 && s2 === g2) || (s1 === g2 && s2 === g1);
+    });
+
+    if (!match) {
+      console.log(`❌ Could not match score for game: ${game.team1} vs ${game.team2}`);
+      continue;
+    }
+
+    const adjusted1 = match.score1 + game.spread1;
+    const raw2 = match.score2;
+
+    let winner = '';
+    if (adjusted1 > raw2) {
+      winner = game.team1;
+    } else if (adjusted1 < raw2) {
+      winner = game.team2;
+    } else {
+      winner = 'PUSH';
+    }
+
+    console.log(`🧮 ${game.team1} (${match.score1} + ${game.spread1} = ${adjusted1}) vs ${game.team2} (${raw2}) → 🏆 Winner: ${winner}`);
+
+    detail.push({
+      team1: game.team1,
+      spread1: game.spread1,
+      score1: match.score1,
+      team2: game.team2,
+      spread2: game.spread2,
+      score2: match.score2,
+      winner
+    });
+
+    if (winner !== 'PUSH') {
+      declaredWinners.push(winner);
+    }
+  }
+
+  fs.writeFileSync(detailPath, JSON.stringify(detail, null, 2));
+  fs.writeFileSync(winnersPath, JSON.stringify(declaredWinners, null, 2));
+
+  console.log(`✅ Week ${week} winners calculated: ${declaredWinners.length} games with valid winner`);
+  console.log(`📄 Output: winners_detail_week_${week}.json + declaredwinners_week_${week}.json`);
+};
 
 // ===== Upload Spread =====
 app.post('/api/upload/spread', upload.single('file'), (req, res) => {
@@ -101,10 +176,15 @@ app.post('/api/upload/spread', upload.single('file'), (req, res) => {
 
   fs.writeFileSync(filePath, JSON.stringify(games, null, 2));
   fs.writeFileSync(path.join(dataDir, 'current_week.json'), JSON.stringify({ currentWeek: week }, null, 2));
+
+  // ✅ Upload to Google Drive
+  uploadJsonToDrive(filePath, `games_week_${week}.json`)
+    .then(id => console.log(`✅ Spread also uploaded to Drive. File ID: ${id}`))
+    .catch(err => console.error('❌ Drive upload failed:', err.message));
+
   res.send(`✅ Spread uploaded and converted for Week ${week}`);
 });
 
-// ===== Upload Scores =====
 app.post('/api/upload/scores', upload.single('file'), (req, res) => {
   const file = req.file;
   if (!file) return res.status(400).send('No file uploaded.');
@@ -115,24 +195,78 @@ app.post('/api/upload/scores', upload.single('file'), (req, res) => {
 
   const filePath = path.join(dataDir, `scores_week_${week}.json`);
   const backupPath = path.join(backupDir, `${Date.now()}_scores_week_${week}.json`);
-  const force = req.body.force === 'true'; // ✅ enable override logic
+  const force = req.body.force === 'true';
 
-  // Block upload if file exists and force not set
   if (fs.existsSync(filePath) && !force) {
     return res.status(409).json({ message: `Week ${week} scores already exist. Overwrite?` });
   }
-
-  // Backup file if overwriting
   if (fs.existsSync(filePath) && force) {
     fs.copyFileSync(filePath, backupPath);
   }
 
   const workbook = xlsx.readFile(file.path);
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const jsonData = xlsx.utils.sheet_to_json(sheet);
+  const rows = xlsx.utils.sheet_to_json(sheet, { header: 1 });
 
-  fs.writeFileSync(filePath, JSON.stringify(jsonData, null, 2));
-  calculateWinners(week);
+  const rawScores = [];
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.length < 5) continue;
+    rawScores.push({
+      date: row[0],
+      team1: row[1]?.toString().trim(),
+      score1: Number(row[2]),
+      team2: row[3]?.toString().trim(),
+      score2: Number(row[4])
+    });
+  }
+
+  const normalize = str => str?.replace(/[^a-zA-Z0-9]/g, '').replace(/state$/i, 'st').toLowerCase();
+
+  const gamesPath = path.join(dataDir, `games_week_${week}.json`);
+  if (!fs.existsSync(gamesPath)) {
+    return res.status(400).send(`Missing games_week_${week}.json`);
+  }
+  const spreadGames = JSON.parse(fs.readFileSync(gamesPath));
+
+  const orderedScores = spreadGames.map(game => {
+    const g1 = normalize(game.team1);
+    const g2 = normalize(game.team2);
+    const match = rawScores.find(s => {
+      const s1 = normalize(s.team1);
+      const s2 = normalize(s.team2);
+      return (s1 === g1 && s2 === g2) || (s1 === g2 && s2 === g1);
+    });
+
+    if (!match) {
+      console.warn(`⚠️ Score not found for: ${game.team1} vs ${game.team2}`);
+      return null;
+    }
+
+    // Reorder if needed
+    const s1 = normalize(match.team1);
+    const needsSwap = s1 !== g1;
+    return {
+      date: match.date,
+      team1: needsSwap ? match.team2 : match.team1,
+      score1: needsSwap ? match.score2 : match.score1,
+      team2: needsSwap ? match.team1 : match.team2,
+      score2: needsSwap ? match.score1 : match.score2
+    };
+  }).filter(Boolean);
+
+  fs.writeFileSync(filePath, JSON.stringify(orderedScores, null, 2));
+  console.log(`✅ scores_week_${week}.json saved with corrected order.`);
+
+  // === Calculate winners (spread logic + player points) ===
+  calculateTotalWinners(week);
+  calculateWinnersFromList(week); // ✅ This triggers player score generation
+
+  // === Upload to Google Drive ===
+  uploadJsonToDrive(filePath, `scores_week_${week}.json`)
+    .then(id => console.log(`✅ Scores also uploaded to Drive. File ID: ${id}`))
+    .catch(err => console.error('❌ Drive upload failed:', err.message));
+
   res.send(`✅ Scores uploaded and winners calculated for Week ${week}`);
 });
 
@@ -212,69 +346,54 @@ app.post('/submit-picks/:week', (req, res) => {
   }
 });
 
-// ===== Calculate Winners =====
-function calculateWinners(week) {
-  try {
-    const picksFile = path.join(dataDir, `picks_week_${week}.json`);
-    const gamesFile = path.join(dataDir, `games_week_${week}.json`);
-    const scoresFile = path.join(dataDir, `scores_week_${week}.json`);
-    const winnersFile = path.join(dataDir, `winners_week_${week}.json`);
-    const totalsFile = path.join(dataDir, 'totals.json');
-    const cumulativeFile = path.join(dataDir, 'cumulative_scores.json');
+//    calculates winners from list
+function calculateWinnersFromList(week) {
+  const picksFile = path.join(dataDir, `picks_week_${week}.json`);
+  const winnersFile = path.join(dataDir, `declaredwinners_week_${week}.json`);
+  const outputFile = path.join(dataDir, `winners_week_${week}.json`);
+  const totalsFile = path.join(dataDir, 'totals.json');
 
-    if (!fs.existsSync(picksFile) || !fs.existsSync(gamesFile) || !fs.existsSync(scoresFile)) {
-      console.log('❌ Missing file(s) for week', week);
-      return;
-    }
-
-    const picksData = JSON.parse(fs.readFileSync(picksFile));
-    const gamesData = JSON.parse(fs.readFileSync(gamesFile));
-    const scoresData = JSON.parse(fs.readFileSync(scoresFile));
-    const totalsData = fs.existsSync(totalsFile) ? JSON.parse(fs.readFileSync(totalsFile)) : {};
-    const cumulativeData = fs.existsSync(cumulativeFile) ? JSON.parse(fs.readFileSync(cumulativeFile)) : {};
-    const winners = [];
-
-    picksData.forEach(entry => {
-      const player = entry.player?.trim();
-      if (!player) return;
-
-      const correct = [];
-      const { picks } = entry;
-
-      picks.forEach(pick => {
-        const pickedTeam = pick.pick?.trim();
-        const gameIndex = pick.gameIndex;
-        const game = gamesData[gameIndex];
-        const score = scoresData[gameIndex];
-        if (!game || !score) return;
-
-        const score1 = parseInt(score["Score 1"]);
-        const score2 = parseInt(score["Score 2"]);
-        const team1Name = score["Team 1"]?.trim();
-        const team2Name = score["Team 2"]?.trim();
-        const spread1 = parseFloat(game.spread1) || 0;
-        const spread2 = parseFloat(game.spread2) || 0;
-
-        const team1Final = score1 + spread1;
-        const team2Final = score2 + spread2;
-
-        const winner = team1Final > team2Final ? team1Name : team2Final > team1Final ? team2Name : null;
-        if (pickedTeam === winner) correct.push(pickedTeam);
-      });
-
-      const total = correct.length;
-      winners.push({ player, correct, total });
-      totalsData[player] = (totalsData[player] ?? 0) + total;
-      cumulativeData[player] = (cumulativeData[player] ?? 0) + total;
-    });
-
-    fs.writeFileSync(winnersFile, JSON.stringify(winners, null, 2));
-    fs.writeFileSync(totalsFile, JSON.stringify(totalsData, null, 2));
-    fs.writeFileSync(cumulativeFile, JSON.stringify(cumulativeData, null, 2));
-    console.log(`✅ Winners for Week ${week} calculated.`);
-  } catch (err) {
-    console.error('❌ Error calculating winners:', err);
+  if (!fs.existsSync(picksFile) || !fs.existsSync(winnersFile)) {
+    console.error(`❌ Missing picks or declared winners for week ${week}`);
+    return;
   }
+
+  const picksData = JSON.parse(fs.readFileSync(picksFile));
+  const winnersList = JSON.parse(fs.readFileSync(winnersFile));
+
+  const results = picksData.map(player => {
+    const correct = player.picks
+      .map(p => p.pick.trim())
+      .filter(pick => winnersList.includes(pick));
+
+    return {
+      player: player.player,
+      correct,
+      total: correct.length
+    };
+  });
+
+  fs.writeFileSync(outputFile, JSON.stringify(results, null, 2));
+  console.log(`✅ winners_week_${week}.json written (player-specific format)`);
+
+  // === Update totals.json ===
+  let existingTotals = {};
+  if (fs.existsSync(totalsFile)) {
+    try {
+      existingTotals = JSON.parse(fs.readFileSync(totalsFile));
+    } catch {
+      console.warn('⚠️ Failed to read existing totals.json, starting fresh');
+    }
+  }
+
+  for (const result of results) {
+    const name = result.player.trim();
+    const current = existingTotals[name] || 0;
+    existingTotals[name] = current + result.total;
+  }
+
+  fs.writeFileSync(totalsFile, JSON.stringify(existingTotals, null, 2));
+  console.log('📊 totals.json updated');
 }
 
 // ===== All Other Routes =====
@@ -291,10 +410,14 @@ app.get('/api/currentWeek', (req, res) => {
 
 app.get('/api/totals', (req, res) => {
   const filePath = path.join(dataDir, 'totals.json');
-  if (!fs.existsSync(filePath)) return res.json({});
+  if (!fs.existsSync(filePath)) return res.json([]);
   try {
     const data = JSON.parse(fs.readFileSync(filePath));
-    res.json(data);
+    const asArray = Object.entries(data).map(([player, total]) => ({
+      player,
+      total
+    }));
+    res.json(asArray);
   } catch (err) {
     res.status(500).json({ error: 'Failed to read totals file' });
   }
@@ -385,6 +508,7 @@ app.post('/api/chat', (req, res) => {
     });
   });
 });
+
 // ===== Reset System State =====
 app.post('/api/reset-system', (req, res) => {
   const files = fs.readdirSync(dataDir);
@@ -411,8 +535,107 @@ app.post('/api/reset-system', (req, res) => {
     res.status(500).send('Reset failed. Check server logs for details.');
   }
 });
+app.post('/api/calculate-totalwinners/:week', (req, res) => {
+  const week = parseInt(req.params.week);
+  calculateTotalWinners(week);
+  calculateWinnersFromList(week);
+  res.send(`✅ Calculating total winners for Week ${week}`);
+});
+
+// ===== File Download Debug Endpoint =====
+app.get('/api/download/:filename', (req, res) => {
+  const filename = req.params.filename;
+  const filepath = path.join(dataDir, filename);
+  if (!fs.existsSync(filepath)) {
+    return res.status(404).send('File not found.');
+  }
+  res.download(filepath);
+});
+// ===== Debug: List all JSON files in /data =====
+app.get('/api/calculate-totalwinners/:week', (req, res) => {
+  const week = parseInt(req.params.week);
+  calculateTotalWinners(week);
+  calculateWinnersFromList(week); // ✅ This line was missing
+  res.send(`✅ Calculating total winners for Week ${week} via GET`);
+});
+
+app.get('/api/debug/files', (req, res) => {
+  try {
+    const files = fs.readdirSync(dataDir)
+      .filter(name => name.endsWith('.json'))
+      .map(name => ({
+        name,
+        size: fs.statSync(path.join(dataDir, name)).size + ' bytes'
+      }));
+
+    console.log('✅ Debug file list generated');
+    res.setHeader('Content-Type', 'application/json');
+    res.json({ count: files.length, files });
+  } catch (err) {
+    console.error('❌ Failed to list files:', err);
+    res.status(500).json({ error: 'Failed to list files' });
+  }
+});
+// ===== Debug: List all JSON files in /data =====
+app.get('/api/debug/files', (req, res) => {
+  try {
+    const files = fs.readdirSync(dataDir)
+      .filter(name => name.endsWith('.json'))
+      .map(name => {
+        const filepath = path.join(dataDir, name);
+        const stats = fs.statSync(filepath);
+        return {
+          name,
+          size: stats.size + ' bytes',
+          modified: stats.mtime.toLocaleString()
+        };
+      });
+
+    res.setHeader('Content-Type', 'application/json');
+    res.status(200).json({
+      timestamp: new Date().toISOString(),
+      count: files.length,
+      files
+    });
+  } catch (err) {
+    console.error('❌ Failed to list files:', err);
+    res.status(500).json({ error: 'Failed to list files' });
+  }
+});
+//const { uploadJSON } = require('./driveStorage');
+
+// ===== TEST: Upload a file to Google Drive =====
+app.get('/api/debug/upload-test', async (req, res) => {
+  console.log('📤 Upload test route called');
+  try {
+    const sampleData = {
+      week: 3,
+      note: 'This is a test file to confirm Google Drive upload'
+    };
+
+    const fileId = await uploadJSON('test_upload.json', sampleData);
+    res.send(`✅ File uploaded to Drive! File ID: ${fileId}`);
+  } catch (err) {
+    console.error('❌ Upload failed:', err.message);
+    res.status(500).send('Upload to Drive failed.');
+  }
+});
+
+app.get('/api/upload-test', async (req, res) => {
+  console.log('📤 Upload test route called');
+  try {
+    const localPath = path.join(__dirname, 'data', 'current_week.json');
+    const fileId = await uploadJsonToDrive(localPath, 'current_week.json');
+    res.send(`✅ File uploaded to Drive! File ID: ${fileId}`);
+  } catch (err) {
+    console.error('❌ Upload failed:', err.message);
+    res.status(500).send('Upload failed. Check terminal for details.');
+  }
+});
+
+const PORT = process.env.PORT || 4000;
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server is running on http://localhost:${PORT}`);
+  console.log(`🌍 Server is running on port ${PORT}`);
 });
 
