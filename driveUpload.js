@@ -1,8 +1,21 @@
-// driveUpload.js — OAuth2 version (interactive)
+// driveUpload.js — OAuth2 version (safe for Render)
 
 const fs = require('fs');
 const path = require('path');
 const { google } = require('googleapis');
+
+// Detect if we're running on Render
+const isRender = process.env.RENDER === "true";
+
+if (isRender) {
+  console.log("🔒 Running on Render — Google Drive upload disabled.");
+  module.exports = {
+    uploadJsonToDrive: async () => {
+      return "Drive upload skipped in Render.";
+    }
+  };
+  return;
+}
 
 const TOKEN_PATH = path.join(__dirname, 'token.json');
 const CREDENTIALS_PATH = path.join(__dirname, 'oauth-credentials.json');
