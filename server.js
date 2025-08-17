@@ -16,24 +16,6 @@ require('fs').mkdirSync = function (target, options) {
   }
 };
 console.log('[FS SHIM] active');
-// FS SHIM — block mkdir on the Render mount root so deploys don’t fail
-const __fs_mkdir = require('fs').mkdirSync;
-require('fs').mkdirSync = function (target, options) {
-  try {
-    if (typeof target === 'string') {
-      const p = target.trim().replace(/\/+$/, ''); // handle stray newline/trailing slash
-      if (p === '/mnt/data') { 
-        console.log('[FS SHIM] skip mkdir /mnt/data');
-        return; // never create the mount root
-      }
-    }
-    return __fs_mkdir.call(require('fs'), target, options);
-  } catch (err) {
-    if (err && (err.code === 'EEXIST' || err.code === 'EISDIR')) return;
-    throw err;
-  }
-};
-console.log('[FS SHIM] active');
 
 // ✅ Merged server.js for MyPicksProgram-copy
 // Combines working routes from -copy with JSON-direct + auto-calc from -local
