@@ -16,6 +16,19 @@ require('fs').mkdirSync = function (target, options) {
   }
 };
 console.log('[FS SHIM] active');
+// PATH NORMALIZER — trim whitespace & trailing slashes on env paths
+(() => {
+  try {
+    const clean = v => String(v || '').trim().replace(/[\/\\]+$/, '');
+    const d = clean(process.env.DATA_DIR || '/mnt/data');
+    const b = clean(process.env.BACKUP_DIR || (d + '/backups'));
+    process.env.DATA_DIR = d;
+    process.env.BACKUP_DIR = b;
+    console.log('[PATH NORMALIZER]', { DATA_DIR: d, BACKUP_DIR: b });
+  } catch (e) {
+    console.log('[PATH NORMALIZER] skipped:', e?.message);
+  }
+})();
 
 // ✅ Merged server.js for MyPicksProgram-copy
 // Combines working routes from -copy with JSON-direct + auto-calc from -local
