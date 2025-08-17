@@ -74,6 +74,46 @@ const storage = multer.diskStorage({
   filename: (req, file, cb) => cb(null, file.originalname),
 });
 const upload = multer({ storage });
+// ------- HOTFIX: reliable JSON upload (wins by being registered first) -------
+app.post('/api/upload/json-direct', upload.single('file'), (req, res) => {
+  try {
+    const f = req.file;
+    if (!f) return res.status(400).json({ error: 'No file uploaded.' });
+
+    const original = (f.originalname || '').trim().toLowerCase();
+    const m = original.match(/^(games|scores)[-_ ]?week[-_ ]?(\d+)(?:\.json)?$/i);
+    if (!m) return res.status(400).json({ error: 'Filename must be games_week_X.json or scores_week_X.json' });
+
+    const kind = m[1].toLowerCase();
+    const week = parseInt(m[2], 10);
+
+    const text = fs.readFileSync(f.path, 'utf8').replace(/^\uFEFF/, '').trim();
+    let payload; try { payload = JSON.parse(text); } catch { return res.status(400).json({ error: 'Uploaded file is not valid JSON.' }); }
+    if (!Array.isArray(payload)) return res.status(400).json({ error: 'JSON must be an array.' });
+
+    const outName = `${kind}_week_${week}.json`;
+    const outPath = path.join(dataDir, outName);
+
+    const force = ['true','1','yes','on'].includes(String(req.body.force || req.body.overwrite || '').toLowerCase());
+    if (fs.existsSync(outPath) && !force) return res.status(409).json({ message: `${outName} already exists. Overwrite?` });
+    if (fs.existsSync(outPath) && force) {
+      try { fs.mkdirSync(backupDir, { recursive: true }); fs.copyFileSync(outPath, path.join(backupDir, `${Date.now()}_${outName}`)); } catch {}
+    }
+
+    fs.writeFileSync(outPath, JSON.stringify(payload, null, 2));
+
+    if (kind === 'games') {
+      fs.writeFileSync(path.join(dataDir, 'current_week.json'), JSON.stringify({ currentWeek: week }, null, 2));
+    } else {
+      try { calculateTotalWinners(week); calculateWinnersFromList(week); } catch (e) { console.warn('Auto-calc failed:', e?.message); }
+    }
+
+    return res.json({ ok: true, kind, week, savedAs: outName });
+  } catch (err) {
+    console.error('[hotfix json-direct] error:', err);
+    return res.status(500).json({ error: 'Server error.' });
+  }
+});
 
 // ---------- Helpers ----------
 function formatExcelTime(excelTime) {
