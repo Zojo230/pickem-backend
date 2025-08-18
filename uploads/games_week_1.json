@@ -1,0 +1,23 @@
+[
+  {
+    "date": "2025-08-28 6:00 PM",
+    "team1": "Akron",
+    "spread1": -3.5,
+    "team2": "Kent State",
+    "spread2": 3.5
+  },
+  {
+    "date": "2025-08-28 6:00 PM",
+    "team1": "UAB",
+    "spread1": 7.0,
+    "team2": "Troy",
+    "spread2": -7.0
+  },
+  {
+    "date": "2025-08-28 6:00 PM",
+    "team1": "Miami (OH)",
+    "spread1": -2.5,
+    "team2": "Toledo",
+    "spread2": 2.5
+  }
+]

@@ -1,35 +1,3 @@
-// FS SHIM — block mkdir on the Render mount root so deploys don’t fail
-const __fs_mkdir = require('fs').mkdirSync;
-require('fs').mkdirSync = function (target, options) {
-  try {
-    if (typeof target === 'string') {
-      const p = target.trim().replace(/\/+$/, ''); // handle stray newline/trailing slash
-      if (p === '/mnt/data') {
-        console.log('[FS SHIM] skip mkdir /mnt/data');
-        return; // never create the mount root
-      }
-    }
-    return __fs_mkdir.call(require('fs'), target, options);
-  } catch (err) {
-    if (err && (err.code === 'EEXIST' || err.code === 'EISDIR')) return;
-    throw err;
-  }
-};
-console.log('[FS SHIM] active');
-// PATH NORMALIZER — trim whitespace & trailing slashes on env paths
-(() => {
-  try {
-    const clean = v => String(v || '').trim().replace(/[\/\\]+$/, '');
-    const d = clean(process.env.DATA_DIR || '/mnt/data');
-    const b = clean(process.env.BACKUP_DIR || (d + '/backups'));
-    process.env.DATA_DIR = d;
-    process.env.BACKUP_DIR = b;
-    console.log('[PATH NORMALIZER]', { DATA_DIR: d, BACKUP_DIR: b });
-  } catch (e) {
-    console.log('[PATH NORMALIZER] skipped:', e?.message);
-  }
-})();
-
 // ✅ Merged server.js for MyPicksProgram-copy
 // Combines working routes from -copy with JSON-direct + auto-calc from -local
 // Render-friendly (DATA_DIR=/data, BACKUP_DIR=/data/backups), supports CORS_ORIGIN
@@ -37,7 +5,6 @@ console.log('[FS SHIM] active');
 
 require('dotenv').config();
 
-const { uploadJsonToDrive } = require('./driveUpload'); // safe to keep; wrapped in try/catch on use
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
@@ -45,14 +12,23 @@ const fs = require('fs');
 const path = require('path');
 const xlsx = require('xlsx');
 
+// Optional Google Drive uploader (best-effort)
+let uploadJsonToDrive = null;
+try {
+  ({ uploadJsonToDrive } = require('./driveUpload'));
+} catch { /* optional */ }
+
 const app = express();
 
-// ---------- CORS (supports comma-separated CORS_ORIGIN) ----------
-const originsEnv = (process.env.CORS_ORIGIN || '').split(',').map(s => s.trim()).filter(Boolean);
+// ---------- CORS ----------
+const originsEnv = (process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
 if (originsEnv.length) {
   app.use(cors({
-    origin: function (origin, cb) {
-      if (!origin) return cb(null, true); // non-browser or same-origin
+    origin(origin, cb) {
+      if (!origin) return cb(null, true);
       if (originsEnv.includes(origin)) return cb(null, true);
       return cb(new Error('Not allowed by CORS'));
     },
@@ -64,13 +40,12 @@ if (originsEnv.length) {
 
 app.use(express.json());
 
-// ---------- Data directories (Render uses /data) ----------
-const dataDirRaw   = process.env.DATA_DIR   || './data';        // default local
-const backupDirRaw = process.env.BACKUP_DIR || 'backups';       // default local subfolder
+// ---------- Directories ----------
+const dataDirRaw   = process.env.DATA_DIR   || './data';
+const backupDirRaw = process.env.BACKUP_DIR || 'backups';
 
-const dataDir = path.isAbsolute(dataDirRaw) ? dataDirRaw : path.join(__dirname, dataDirRaw);
+const dataDir   = path.isAbsolute(dataDirRaw) ? dataDirRaw : path.join(__dirname, dataDirRaw);
 const backupDir = path.isAbsolute(backupDirRaw) ? backupDirRaw : path.join(dataDir, backupDirRaw);
-
 const uploadDir = path.join(__dirname, 'uploads');
 
 // Ensure needed folders exist
@@ -78,10 +53,10 @@ for (const d of [uploadDir, dataDir, backupDir]) {
   if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
 }
 
-// Serve JSON files (useful for sanity checks)
+// Serve /data (handy for sanity checks)
 app.use('/data', express.static(dataDir));
 
-// ---------- Multer storage ----------
+// ---------- Multer ----------
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => cb(null, file.originalname),
@@ -150,7 +125,7 @@ function normalizeName(str) {
     .toLowerCase();
 }
 
-// ---------- Winners calculation (spread-adjusted) ----------
+// ---------- Winners calculation ----------
 function calculateTotalWinners(week) {
   const scoresPath  = path.join(dataDir, `scores_week_${week}.json`);
   const gamesPath   = path.join(dataDir, `games_week_${week}.json`);
@@ -190,8 +165,6 @@ function calculateTotalWinners(week) {
     if (adjusted1 > raw2) winner = game.team1;
     else if (adjusted1 < raw2) winner = game.team2;
     else winner = 'PUSH';
-
-    console.log(`🧮 ${game.team1} (${match.score1} + ${game.spread1} = ${adjusted1}) vs ${game.team2} (${raw2}) → 🏆 Winner: ${winner}`);
 
     detail.push({
       team1: game.team1, spread1: game.spread1, score1: match.score1,
@@ -245,8 +218,7 @@ function calculateWinnersFromList(week) {
   console.log('📊 totals.json updated');
 }
 
-// ---------- JSON-direct upload (games/scores) ----------
-// Accepts: games_week_X.json OR scores_week_X.json
+// ---------- JSON upload (games|scores) ----------
 app.post('/api/upload/json-direct', upload.single('file'), async (req, res) => {
   try {
     const file = req.file;
@@ -254,9 +226,8 @@ app.post('/api/upload/json-direct', upload.single('file'), async (req, res) => {
 
     const original = (file.originalname || '').trim().toLowerCase();
     const m = original.match(/^(games|scores)[-_ ]?week[-_ ]?(\d+)(?:\.json)?$/i);
-    if (!m) {
-      return res.status(400).json({ error: 'Filename must be games_week_X.json or scores_week_X.json' });
-    }
+    if (!m) return res.status(400).json({ error: 'Filename must be games_week_X.json or scores_week_X.json' });
+
     const kind = m[1].toLowerCase();
     const week = parseInt(m[2], 10);
 
@@ -264,14 +235,14 @@ app.post('/api/upload/json-direct', upload.single('file'), async (req, res) => {
     const targetPath = path.join(dataDir, targetName);
 
     // Read and validate JSON
-    const buf = fs.readFileSync(file.path);
+    const text = fs.readFileSync(file.path, 'utf8').replace(/^\uFEFF/, '').trim();
     let parsed;
-    try { parsed = JSON.parse(buf.toString('utf8').replace(/^\uFEFF/, '').trim()); }
-    catch (e) { return res.status(400).json({ error: 'Uploaded file is not valid JSON.' }); }
+    try { parsed = JSON.parse(text); }
+    catch { return res.status(400).json({ error: 'Uploaded file is not valid JSON.' }); }
 
-    const force = String(req.body.force || '').toLowerCase() === 'true';
+    const force = ['true','1','yes','on'].includes(String(req.body.force || req.body.overwrite || '').toLowerCase());
     if (fs.existsSync(targetPath) && !force) {
-      return res.status(409).json({ message: `Week ${week} ${kind} already exists as ${targetName}. Overwrite it?` });
+      return res.status(409).json({ message: `${targetName} already exists. Overwrite?`, exists: true });
     }
     if (fs.existsSync(targetPath) && force) {
       const backupName = `${Date.now()}_${targetName}`;
@@ -281,76 +252,24 @@ app.post('/api/upload/json-direct', upload.single('file'), async (req, res) => {
     fs.writeFileSync(targetPath, JSON.stringify(parsed, null, 2));
     console.log(`[json-direct] Saved ${targetName}`);
 
-    // Auto-calc winners if uploading scores and requested
-    const autoCalc = String(req.body.autoCalculate || '').toLowerCase() === 'true';
-    let autoCalculated = false;
-    if (autoCalc && kind === 'scores') {
+    // Side-effects
+    if (kind === 'games') {
+      fs.writeFileSync(path.join(dataDir, 'current_week.json'), JSON.stringify({ currentWeek: week }, null, 2));
+    } else {
       try {
-        await Promise.resolve(calculateTotalWinners(week));
-        await Promise.resolve(calculateWinnersFromList(week));
-        autoCalculated = true;
-        console.log(`[json-direct] Winners auto-calculated for week ${week}`);
-      } catch (e) {
-        console.error('Auto-calc winners failed:', e);
-      }
+        calculateTotalWinners(week);
+        calculateWinnersFromList(week);
+      } catch (e) { console.warn('Auto-calc failed:', e?.message); }
     }
 
-    return res.json({ ok: true, kind, week, savedAs: targetName, autoCalculated });
+    return res.json({ ok: true, kind, week, savedAs: targetName });
   } catch (err) {
     console.error('/api/upload/json-direct error:', err);
     return res.status(500).json({ error: 'Server error.' });
   }
 });
 
-// ---------- Scores JSON (no auto-calc; accepts only scores_week_X.json) ----------
-app.post('/api/upload/scores-json', upload.single('file'), (req, res) => {
-  try {
-    const file = req.file;
-    if (!file) return res.status(400).json({ error: 'No file uploaded.' });
-
-    const original = (file.originalname || '').trim();
-    const m = original.match(/^scores[-_ ]?week[-_ ]?(\d+)(?:\.json)?$/i);
-    if (!m) return res.status(400).json({ error: 'Filename must be scores_week_X.json' });
-    const week = parseInt(m[1], 10);
-
-    const targetName = `scores_week_${week}.json`;
-    const targetPath = path.join(dataDir, targetName);
-
-    // Read+validate JSON (tolerant of BOM/whitespace)
-    let parsed;
-    try {
-      const buf  = fs.readFileSync(file.path);
-      const text = buf.toString('utf8').replace(/^\uFEFF/, '').trim();
-      parsed = JSON.parse(text);
-      if (!Array.isArray(parsed)) throw new Error('Root must be an array.');
-      for (const row of parsed) {
-        if (typeof row.team1 !== 'string' || typeof row.team2 !== 'string') throw new Error('Each item needs string team1/team2.');
-        if (typeof row.score1 !== 'number' || typeof row.score2 !== 'number') throw new Error('Each item needs numeric score1/score2.');
-        if (row.date !== undefined && typeof row.date !== 'string') throw new Error('If provided, date must be a string.');
-      }
-    } catch (e) {
-      return res.status(400).json({ error: `Invalid scores JSON: ${e.message}` });
-    }
-
-    const force = String(req.body.force || '').toLowerCase() === 'true';
-    if (fs.existsSync(targetPath) && !force) {
-      return res.status(409).json({ error: `${targetName} already exists. Overwrite?`, exists: true });
-    }
-    if (fs.existsSync(targetPath) && force) {
-      const backupPath = path.join(backupDir, `${Date.now()}_${targetName}`);
-      fs.copyFileSync(targetPath, backupPath);
-    }
-
-    fs.writeFileSync(targetPath, JSON.stringify(parsed, null, 2));
-    console.log(`[scores-json] saved ${targetName}`);
-    return res.json({ ok: true, week, savedAs: targetName });
-  } catch (err) {
-    console.error('/api/upload/scores-json error:', err);
-    return res.status(500).json({ error: 'Server error.' });
-  }
-});
-
-// ---------- Excel Uploads: Spread ----------
+// ---------- Excel upload: spread ----------
 app.post('/api/upload/spread', upload.single('file'), (req, res) => {
   const file = req.file;
   if (!file) return res.status(400).send('No file uploaded.');
@@ -410,19 +329,18 @@ app.post('/api/upload/spread', upload.single('file'), (req, res) => {
   fs.writeFileSync(filePath, JSON.stringify(games, null, 2));
   fs.writeFileSync(path.join(dataDir, 'current_week.json'), JSON.stringify({ currentWeek: week }, null, 2));
 
-  // Upload to Drive (best-effort)
   try {
     uploadJsonToDrive && uploadJsonToDrive(filePath, `games_week_${week}.json`)
       .then(id => console.log(`✅ Spread also uploaded to Drive. File ID: ${id}`))
       .catch(err => console.error('❌ Drive upload failed:', err.message));
-  } catch (e) {
-    console.warn('⚠️ Drive upload module not available.');
+  } catch {
+    /* optional */
   }
 
   res.send(`✅ Spread uploaded and converted for Week ${week}`);
 });
 
-// ---------- Excel Uploads: Scores (auto-calc) ----------
+// ---------- Excel upload: scores (auto-calc) ----------
 app.post('/api/upload/scores', upload.single('file'), (req, res) => {
   const file = req.file;
   if (!file) return res.status(400).send('No file uploaded.');
@@ -492,97 +410,18 @@ app.post('/api/upload/scores', upload.single('file'), (req, res) => {
   calculateTotalWinners(week);
   calculateWinnersFromList(week);
 
-  // Upload to Drive (best-effort)
   try {
     uploadJsonToDrive && uploadJsonToDrive(filePath, `scores_week_${week}.json`)
       .then(id => console.log(`✅ Scores also uploaded to Drive. File ID: ${id}`))
       .catch(err => console.error('❌ Drive upload failed:', err.message));
-  } catch (e) {
-    console.warn('⚠️ Drive upload module not available.');
+  } catch {
+    /* optional */
   }
 
   res.send(`✅ Scores uploaded and winners calculated for Week ${week}`);
 });
-// === JSON direct upload (games or scores) ===================================
-// Accepts a .json file containing an array.
-//   games  item example: { date, team1, spread1, team2, spread2 }
-//   scores item example: { team1, team2, score1, score2, (optional) date }
-// The uploaded filename must contain "week_#" (e.g., games_week_1.json).
-app.post('/api/upload/json-direct', upload.single('file'), (req, res) => {
-  try {
-    const f = req.file;
-    if (!f) return res.status(400).send('No file uploaded.');
 
-    // Derive week number from filename (fallback to ?week=)
-    const m = (f.originalname || '').match(/week[_ -]?(\d+)/i);
-    const weekFromName = m ? parseInt(m[1], 10) : null;
-    const week = weekFromName ?? (req.query.week ? parseInt(String(req.query.week), 10) : NaN);
-    if (!Number.isInteger(week)) {
-      return res.status(400).send('Filename must contain week number (e.g., week_1).');
-    }
-
-    // Parse JSON
-    let payload;
-    try {
-      payload = JSON.parse(f.buffer.toString('utf8'));
-    } catch {
-      return res.status(400).send('Invalid JSON.');
-    }
-    if (!Array.isArray(payload) || payload.length === 0) {
-      return res.status(400).send('JSON must be a non-empty array.');
-    }
-
-    // Identify kind by keys
-    const sample = payload[0] ?? {};
-    const looksLikeGames  = ('spread1' in sample) || ('spread2' in sample);
-    const looksLikeScores = ('score1'  in sample) || ('score2'  in sample);
-    if (!looksLikeGames && !looksLikeScores) {
-      return res.status(400).send('Unrecognized JSON shape (expected games or scores fields).');
-    }
-    const kind   = looksLikeGames ? 'games' : 'scores';
-    const outName = `${kind}_week_${week}.json`;
-    const outPath = path.join(dataDir, outName);
-
-    // Overwrite/backup handling — accepts ?force= or ?overwrite= or body flags
-    const flag = String(
-      (req.query.force ?? req.query.overwrite ?? req.body?.force ?? req.body?.overwrite ?? '')
-    ).toLowerCase();
-    const force = ['true','1','yes','on'].includes(flag);
-
-    fs.mkdirSync(dataDir, { recursive: true });
-
-    if (fs.existsSync(outPath) && !force) {
-      return res.status(409).json({ error: `${outName} already exists. Overwrite?`, exists: true });
-    }
-    if (fs.existsSync(outPath) && force) {
-      try {
-        fs.mkdirSync(backupDir, { recursive: true });
-        fs.copyFileSync(outPath, path.join(backupDir, `${Date.now()}_${outName}`));
-      } catch (e) {
-        console.warn('Backup failed:', e?.message);
-      }
-    }
-
-    fs.writeFileSync(outPath, JSON.stringify(payload, null, 2));
-
-    // If scores, immediately compute winners/totals
-    if (kind === 'scores') {
-      try {
-        calculateWinnersFromList(week); // updates winners_detail_week_X.json + totals.json
-      } catch (e) {
-        console.error('Winner calc error:', e);
-      }
-    }
-
-    return res.json({ ok: true, kind, week, savedAs: outName });
-  } catch (err) {
-    console.error('/api/upload/json-direct error:', err);
-    return res.status(500).json({ error: 'Server error.' });
-  }
-});
-// ============================================================================ end
-
-// ---------- Roster Upload (Excel) ----------
+// ---------- Roster upload (Excel) ----------
 app.post('/api/upload/roster', upload.single('file'), (req, res) => {
   const file = req.file;
   if (!file) return res.status(400).send('No file uploaded.');
@@ -596,7 +435,7 @@ app.post('/api/upload/roster', upload.single('file'), (req, res) => {
   }
 
   if (fs.existsSync(filePath)) {
-    fs.copyFileSync(filePath, backupPath); // backup existing
+    fs.copyFileSync(filePath, backupPath);
   }
 
   try {
@@ -629,7 +468,7 @@ app.post('/submit-picks/:week', (req, res) => {
   const { player, pin, picks } = req.body || {};
   if (!player || !pin || !Array.isArray(picks)) {
     return res.status(400).json({ success: false, error: 'Missing data.' });
-    }
+  }
 
   const filename = path.join(dataDir, `picks_week_${week}.json`);
   let data = [];
@@ -654,7 +493,7 @@ app.post('/submit-picks/:week', (req, res) => {
   }
 });
 
-// ---------- Utility/Info routes ----------
+// ---------- Utility / Info ----------
 app.get('/api/currentWeek', (req, res) => {
   const filePath = path.join(dataDir, 'current_week.json');
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Current week not set' });
@@ -706,28 +545,32 @@ app.post('/api/check-player-picks', (req, res) => {
   }
 });
 
-app.post('/api/authenticate', (req, res) => {
-  const { gameName, pin } = req.body || {};
-  const filePath = path.join(dataDir, 'roster.json');
-  if (!fs.existsSync(filePath)) return res.json({ success: false });
+// ---------- NEW: Robust /api/rules ----------
+app.get('/api/rules', (req, res) => {
   try {
-    const roster = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    const player = roster.find(p => (p.name || '').toLowerCase() === (gameName || '').toLowerCase() && p.pin === pin);
-    res.json({ success: !!player });
-  } catch {
-    res.json({ success: false });
+    const p = path.join(dataDir, 'rules.json');
+    if (!fs.existsSync(p)) return res.json({ rulesText: '' });
+
+    const raw = fs.readFileSync(p, 'utf8');
+    let parsed;
+    try { parsed = JSON.parse(raw); } catch {
+      // If it's not valid JSON, return raw text
+      return res.json({ rulesText: raw || '' });
+    }
+
+    if (typeof parsed === 'string') return res.json({ rulesText: parsed });
+    if (parsed && typeof parsed.content === 'string') return res.json({ rulesText: parsed.content });
+    if (parsed && typeof parsed.rulesText === 'string') return res.json({ rulesText: parsed.rulesText });
+
+    // Fallback: stringify unknown objects
+    return res.json({ rulesText: JSON.stringify(parsed) });
+  } catch (e) {
+    console.error('GET /api/rules error', e);
+    res.status(500).json({ rulesText: '' });
   }
 });
 
-app.get('/api/rules', (req, res) => {
-  const filePath = path.join(dataDir, 'rules.json');
-  fs.readFile(filePath, 'utf8', (err, data) => {
-    if (err) return res.status(500).json({ error: 'Failed to load rules' });
-    try { res.json(JSON.parse(data)); }
-    catch { res.status(500).json({ error: 'Invalid rules format' }); }
-  });
-});
-
+// ---------- Chat ----------
 app.get('/api/chat', (req, res) => {
   const filePath = path.join(dataDir, 'chat.json');
   fs.readFile(filePath, 'utf8', (err, data) => {
@@ -758,11 +601,14 @@ app.post('/api/chat', (req, res) => {
   });
 });
 
-// Reset system state (dangerous; keep for admin/debug only)
+// ---------- Reset / Debug / Download ----------
 app.post('/api/reset-system', (req, res) => {
   try {
     const files = fs.readdirSync(dataDir);
-    const weekFilePatterns = [/^games_week_\\d+\\.json$/, /^scores_week_\\d+\\.json$/, /^picks_week_\\d+\\.json$/, /^winners_week_\\d+\\.json$/, /^winners_detail_week_\\d+\\.json$/, /^declaredwinners_week_\\d+\\.json$/];
+    const weekFilePatterns = [
+      /^games_week_\d+\.json$/, /^scores_week_\d+\.json$/, /^picks_week_\d+\.json$/,
+      /^winners_week_\d+\.json$/, /^winners_detail_week_\d+\.json$/, /^declaredwinners_week_\d+\.json$/
+    ];
     files.forEach(file => { if (weekFilePatterns.some(rx => rx.test(file))) fs.unlinkSync(path.join(dataDir, file)); });
 
     fs.writeFileSync(path.join(dataDir, 'current_week.json'), JSON.stringify({ currentWeek: 1 }, null, 2));
@@ -776,7 +622,6 @@ app.post('/api/reset-system', (req, res) => {
   }
 });
 
-// Calculate total winners (GET/POST)
 app.all('/api/calculate-totalwinners/:week', (req, res) => {
   const week = parseInt(req.params.week, 10);
   calculateTotalWinners(week);
@@ -784,7 +629,6 @@ app.all('/api/calculate-totalwinners/:week', (req, res) => {
   res.send(`✅ Calculating total winners for Week ${week}`);
 });
 
-// Download a JSON file directly
 app.get('/api/download/:filename', (req, res) => {
   const filename = req.params.filename;
   const filepath = path.join(dataDir, filename);
@@ -792,7 +636,6 @@ app.get('/api/download/:filename', (req, res) => {
   res.download(filepath);
 });
 
-// List JSON files in /data
 app.get('/api/debug/files', (req, res) => {
   try {
     const files = fs.readdirSync(dataDir)
@@ -802,25 +645,10 @@ app.get('/api/debug/files', (req, res) => {
         const st = fs.statSync(fp);
         return { name, size: st.size, modified: st.mtime.toLocaleString() };
       });
-    res.json({ count: files.length, files });
+  res.json({ count: files.length, files });
   } catch (err) {
     console.error('❌ Failed to list files:', err);
     res.status(500).json({ error: 'Failed to list files' });
-  }
-});
-
-// Upload a sample file to Drive (best-effort)
-app.get('/api/upload-test', async (req, res) => {
-  console.log('📤 Upload test route called');
-  try {
-    const localPath = path.join(dataDir, 'current_week.json');
-    if (!fs.existsSync(localPath)) fs.writeFileSync(localPath, JSON.stringify({ currentWeek: 1 }, null, 2));
-    if (!uploadJsonToDrive) throw new Error('uploadJsonToDrive not available');
-    const fileId = await uploadJsonToDrive(localPath, 'current_week.json');
-    res.send(`✅ File uploaded to Drive! File ID: ${fileId}`);
-  } catch (err) {
-    console.error('❌ Upload failed:', err.message);
-    res.status(500).send('Upload failed. Check terminal for details.');
   }
 });
 

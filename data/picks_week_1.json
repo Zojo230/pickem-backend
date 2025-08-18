@@ -1,0 +1,12 @@
+[
+  {
+    "player": "Rick",
+    "pin": "1234",
+    "picks": [
+      { "gameIndex": 0, "pick": "Akron" },
+      { "gameIndex": 1, "pick": "UAB" },
+      { "gameIndex": 2, "pick": "Miami (OH)" }
+    ],
+    "week": 1
+  }
+]

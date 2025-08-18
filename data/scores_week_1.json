@@ -1,0 +1,23 @@
+[
+  {
+    "date": "2025-08-28 6:00 PM",
+    "team1": "Akron",
+    "score1": 21,
+    "team2": "Kent State",
+    "score2": 17
+  },
+  {
+    "date": "2025-08-28 6:00 PM",
+    "team1": "Troy",
+    "score1": 20,
+    "team2": "UAB",
+    "score2": 14
+  },
+  {
+    "date": "2025-08-28 6:00 PM",
+    "team1": "Toledo",
+    "score1": 14,
+    "team2": "Miami (OH)",
+    "score2": 10
+  }
+]
