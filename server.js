@@ -75,7 +75,11 @@ if (originsEnv.length) {
   app.use(cors());
 }
 
-app.use(express.json());
+// Global JSON parser, except /api/authenticate (we parse that route manually)
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/authenticate')) return next();
+  return express.json()(req, res, next);
+});
 
 // ---------- Directories ----------
 const dataDirRaw   = (process.env.DATA_DIR   || './data').replace(/\r?\n/g, '').trim();
