@@ -191,6 +191,76 @@ app.use('/data', (req, res, next) => {
   }
   next();
 }, express.static(dataDir));
+// ---------- Auth & Data Compatibility Routes for Player Picks ----------
+
+// Validate game name + PIN (supports both GET and POST for compatibility)
+function handleAuthenticate(req, res) {
+  try {
+    const name = (req.method === 'GET' ? req.query.name : req.body?.name) || '';
+    const pin  = (req.method === 'GET' ? req.query.pin  : req.body?.pin ) || '';
+    if (!name || !pin) return res.status(400).json({ error: 'Missing name or pin' });
+
+    const rosterPath = path.join(dataDir, 'roster.json');
+    if (!fs.existsSync(rosterPath)) return res.status(404).json({ error: 'Roster not found' });
+
+    const roster = JSON.parse(fs.readFileSync(rosterPath, 'utf8'));
+    const norm = s => s.toString().trim().toLowerCase();
+    const match = Array.isArray(roster) && roster.find(r => {
+      const rname = typeof r === 'string' ? r : (r && r.name);
+      const rpin  = typeof r === 'string' ? '' : (r && r.pin);
+      return rname && norm(rname) === norm(name) && String(rpin ?? '') === String(pin);
+    });
+
+    if (!match) return res.status(401).json({ error: 'Invalid name or PIN' });
+    return res.json({ ok: true, name: (typeof match === 'string' ? match : match.name) });
+  } catch (e) {
+    return res.status(500).json({ error: e.message || 'Auth failed' });
+  }
+}
+app.get('/api/authenticate', handleAuthenticate);
+app.post('/api/authenticate', express.json(), handleAuthenticate);
+
+// File helpers (serve JSON if it exists)
+function sendJsonFile(res, filePath) {
+  if (!fs.existsSync(filePath)) return res.status(404).send('Not found');
+  return res.sendFile(filePath);
+}
+
+// Alias: /api/games_week_X.json  -> /data/games_week_X.json
+app.get('/api/games_week_:week.json', (req, res) => {
+  const filePath = path.join(dataDir, `games_week_${req.params.week}.json`);
+  return sendJsonFile(res, filePath);
+});
+
+// Alias: /api/scores_week_X.json -> /data/scores_week_X.json
+app.get('/api/scores_week_:week.json', (req, res) => {
+  const filePath = path.join(dataDir, `scores_week_${req.params.week}.json`);
+  return sendJsonFile(res, filePath);
+});
+
+// Alias: /api/winners_week_X.json -> /data/winners_week_X.json (if you use it)
+app.get('/api/winners_week_:week.json', (req, res) => {
+  const filePath = path.join(dataDir, `winners_week_${req.params.week}.json`);
+  return sendJsonFile(res, filePath);
+});
+
+// Alias: /api/picks_week_X.json -> /data/picks_week_X.json  (respect cutoff)
+// Allow reads from the Player Picks page (referer contains /picks); hide elsewhere before cutoff
+app.get('/api/picks_week_:week.json', (req, res) => {
+  const week = Number(req.params.week) || getCurrentWeekNumber();
+  const ref = (req.get('referer') || '').toLowerCase();
+  const fromPicksPage = ref.includes('/picks');
+
+  if (!fromPicksPage && !isLockedNow(week)) {
+    return res.status(403).json({
+      error: 'All Players’ picks are hidden until Thursday at 1:00 PM CT.',
+      week,
+      cutoffISO: computeCutoffForWeek(week)?.toISOString() || null
+    });
+  }
+  const filePath = path.join(dataDir, `picks_week_${week}.json`);
+  return sendJsonFile(res, filePath);
+});
 
 // ---------- Multer ----------
 const storage = multer.diskStorage({
