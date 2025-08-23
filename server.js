@@ -91,7 +91,106 @@ for (const d of [uploadDir, dataDir, backupDir]) {
 }
 
 // Serve /data (handy for sanity checks)
-app.use('/data', express.static(dataDir));
+// ---------- Picks Cutoff (Thu 1:00 PM CT) + Reveal Picks After Cutoff ----------
+
+// Parse "YYYY-MM-DD hh:mm AM/PM" in local time (Render has TZ=America/Chicago)
+function parseGameDate(str) {
+  if (!str) return null;
+  const m = String(str).trim().match(/^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{1,2}):(\d{2})\s*([AP]M))?$/i);
+  if (!m) return null;
+  const [, y, mm, dd, hh, min, ampm] = m;
+  let H = hh ? parseInt(hh, 10) : 0;
+  const M = min ? parseInt(min, 10) : 0;
+  if (ampm) {
+    const up = ampm.toUpperCase();
+    if (up === 'PM' && H < 12) H += 12;
+    if (up === 'AM' && H === 12) H = 0;
+  }
+  return new Date(parseInt(y,10), parseInt(mm,10)-1, parseInt(dd,10), H, M, 0);
+}
+
+// Read current week
+function getCurrentWeekNumber() {
+  try {
+    const p = path.join(dataDir, 'current_week.json');
+    if (!fs.existsSync(p)) return 1;
+    const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+    return Number(j.currentWeek ?? j.week ?? 1);
+  } catch { return 1; }
+}
+
+// Compute that week’s Thursday @ 1:00 PM CT using earliest game date
+function computeCutoffForWeek(weekNum) {
+  try {
+    const gpath = path.join(dataDir, `games_week_${weekNum}.json`);
+    if (!fs.existsSync(gpath)) return null;
+    const games = JSON.parse(fs.readFileSync(gpath, 'utf8'));
+    if (!Array.isArray(games) || !games.length) return null;
+    let earliest = null;
+    for (const g of games) {
+      const dt = parseGameDate(g?.date);
+      if (dt && (!earliest || dt < earliest)) earliest = dt;
+    }
+    if (!earliest) return null;
+    // JS: 0=Sun..4=Thu
+    const th = new Date(earliest);
+    th.setHours(0,0,0,0);
+    th.setDate(earliest.getDate() + (4 - earliest.getDay()));
+    th.setHours(13,0,0,0); // 1:00 PM
+    return th;
+  } catch { return null; }
+}
+
+function isLockedNow(weekNum) {
+  const cutoff = computeCutoffForWeek(weekNum);
+  if (!cutoff) return true;              // be conservative: hide until we can compute
+  return new Date() >= cutoff;
+}
+
+// Pre-guard: block pick submissions after cutoff (matches any POST path containing "picks")
+app.use((req, res, next) => {
+  if (req.method === 'POST' && /picks/i.test(req.path)) {
+    const week = Number(req.query.week || req.body?.week) || getCurrentWeekNumber();
+    if (isLockedNow(week)) {
+      return res.status(403).json({
+        error: 'Pick submissions are closed.',
+        week,
+        cutoffISO: computeCutoffForWeek(week)?.toISOString() || null,
+        timezone: 'America/Chicago'
+      });
+    }
+  }
+  next();
+});
+
+// Lock/reveal status (optional for frontend checks)
+app.get('/api/lock-status', (req, res) => {
+  const week = Number(req.query.week) || getCurrentWeekNumber();
+  const cutoff = computeCutoffForWeek(week);
+  res.json({
+    week,
+    cutoffISO: cutoff ? cutoff.toISOString() : null,
+    timezone: 'America/Chicago',
+    isLocked: isLockedNow(week),
+    revealPicks: isLockedNow(week)
+  });
+});
+
+// Serve /data but hide the picks file until cutoff
+app.use('/data', (req, res, next) => {
+  const m = req.path.match(/^\/picks_week_(\d+)\.json$/i);
+  if (m) {
+    const week = Number(m[1]) || getCurrentWeekNumber();
+    if (!isLockedNow(week)) {
+      return res.status(403).json({
+        error: 'All Players’ picks are hidden until Thursday at 1:00 PM CT.',
+        week,
+        cutoffISO: computeCutoffForWeek(week)?.toISOString() || null
+      });
+    }
+  }
+  next();
+}, express.static(dataDir));
 
 // ---------- Multer ----------
 const storage = multer.diskStorage({
