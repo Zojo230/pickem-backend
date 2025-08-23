@@ -191,13 +191,40 @@ app.use('/data', (req, res, next) => {
   }
   next();
 }, express.static(dataDir));
+
 // ---------- Auth & Data Compatibility Routes for Player Picks ----------
 
-// Validate game name + PIN (supports both GET and POST for compatibility)
+// Route-level parsers to handle both JSON and URL-encoded bodies
+const urlencodedParser = express.urlencoded({ extended: false });
+const jsonParser = express.json();
+
+// Helper: first present key from a set (case-insensitive)
+function pickFirst(obj, keys) {
+  if (!obj || typeof obj !== 'object') return '';
+  for (const k of keys) {
+    if (obj[k] != null) return obj[k];
+    const lower = Object.keys(obj).find(kk => kk.toLowerCase() === k.toLowerCase());
+    if (lower) return obj[lower];
+  }
+  return '';
+}
+
+// Unified auth handler (GET or POST; query, json, or urlencoded)
 function handleAuthenticate(req, res) {
   try {
-    const name = (req.method === 'GET' ? req.query.name : req.body?.name) || '';
-    const pin  = (req.method === 'GET' ? req.query.pin  : req.body?.pin ) || '';
+    // Merge query and body (body may be json or urlencoded)
+    const src = {
+      ...(req.query || {}),
+      ...(typeof req.body === 'object' ? (req.body || {}) : {})
+    };
+
+    const name = String(
+      pickFirst(src, ['name','gameName','gamename','player','playerName','username','user'])
+    ).trim();
+    const pin  = String(
+      pickFirst(src, ['pin','PIN','Pin','passcode','password','pwd'])
+    ).trim();
+
     if (!name || !pin) return res.status(400).json({ error: 'Missing name or pin' });
 
     const rosterPath = path.join(dataDir, 'roster.json');
@@ -205,20 +232,27 @@ function handleAuthenticate(req, res) {
 
     const roster = JSON.parse(fs.readFileSync(rosterPath, 'utf8'));
     const norm = s => s.toString().trim().toLowerCase();
+
     const match = Array.isArray(roster) && roster.find(r => {
-      const rname = typeof r === 'string' ? r : (r && r.name);
-      const rpin  = typeof r === 'string' ? '' : (r && r.pin);
+      const rname = typeof r === 'string' ? r : (r && (r.name || r.gameName || r.playerName));
+      const rpin  = typeof r === 'string' ? '' : (r && (r.pin || r.PIN || r.passcode || r.password));
       return rname && norm(rname) === norm(name) && String(rpin ?? '') === String(pin);
     });
 
     if (!match) return res.status(401).json({ error: 'Invalid name or PIN' });
-    return res.json({ ok: true, name: (typeof match === 'string' ? match : match.name) });
+
+    return res.json({
+      ok: true,
+      name: (typeof match === 'string' ? match : (match.name || match.gameName || match.playerName))
+    });
   } catch (e) {
     return res.status(500).json({ error: e.message || 'Auth failed' });
   }
 }
+
+// Accept GET and POST (json or urlencoded)
 app.get('/api/authenticate', handleAuthenticate);
-app.post('/api/authenticate', express.json(), handleAuthenticate);
+app.post('/api/authenticate', urlencodedParser, jsonParser, handleAuthenticate);
 
 // File helpers (serve JSON if it exists)
 function sendJsonFile(res, filePath) {
@@ -238,13 +272,13 @@ app.get('/api/scores_week_:week.json', (req, res) => {
   return sendJsonFile(res, filePath);
 });
 
-// Alias: /api/winners_week_X.json -> /data/winners_week_X.json (if you use it)
+// Alias: /api/winners_week_X.json -> /data/winners_week_X.json
 app.get('/api/winners_week_:week.json', (req, res) => {
   const filePath = path.join(dataDir, `winners_week_${req.params.week}.json`);
   return sendJsonFile(res, filePath);
 });
 
-// Alias: /api/picks_week_X.json -> /data/picks_week_X.json  (respect cutoff)
+// Alias: /api/picks_week_X.json -> /data/picks_week_X.json (respect cutoff)
 // Allow reads from the Player Picks page (referer contains /picks); hide elsewhere before cutoff
 app.get('/api/picks_week_:week.json', (req, res) => {
   const week = Number(req.params.week) || getCurrentWeekNumber();
