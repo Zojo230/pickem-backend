@@ -1,10 +1,38 @@
-// ✅ Merged server.js for MyPicksProgram-copy
-// Combines working routes from -copy with JSON-direct + auto-calc from -local
-// Render-friendly (DATA_DIR=/data, BACKUP_DIR=/data/backups), supports CORS_ORIGIN
-// Default local dev: DATA_DIR=./data, BACKUP_DIR=backups
+// FS SHIM — block mkdir on the Render mount root so deploys don’t fail
+const __fs_mkdir = require('fs').mkdirSync;
+require('fs').mkdirSync = function (target, options) {
+  try {
+    if (typeof target === 'string') {
+      const p = target.trim().replace(/\/+$/, ''); // handle stray newline/trailing slash
+      if (p === '/mnt/data') {
+        console.log('[FS SHIM] skip mkdir /mnt/data');
+        return; // never create the mount root
+      }
+    }
+    return __fs_mkdir.call(require('fs'), target, options);
+  } catch (err) {
+    if (err && (err.code === 'EEXIST' || err.code === 'EISDIR')) return;
+    throw err;
+  }
+};
+console.log('[FS SHIM] active');
 
+// PATH NORMALIZER — trim whitespace & trailing slashes on env paths
+(() => {
+  try {
+    const clean = v => String(v || '').trim().replace(/[\/\\]+$/, '');
+    const d = clean(process.env.DATA_DIR || '/mnt/data');
+    const b = clean(process.env.BACKUP_DIR || (d + '/backups'));
+    process.env.DATA_DIR = d;
+    process.env.BACKUP_DIR = b;
+    console.log('[PATH NORMALIZER]', { DATA_DIR: d, BACKUP_DIR: b });
+  } catch (e) {
+    console.log('[PATH NORMALIZER] skipped:', e?.message);
+  }
+})();
+
+// Load .env and core libs
 require('dotenv').config();
-
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
@@ -12,12 +40,21 @@ const fs = require('fs');
 const path = require('path');
 const xlsx = require('xlsx');
 
-// Optional Google Drive uploader (best-effort)
-let uploadJsonToDrive = null;
-try {
-  ({ uploadJsonToDrive } = require('./driveUpload'));
-} catch { /* optional */ }
+// ---------- Normalize env paths ASAP ----------
+const sanitizeEnvPath = (v, dflt) =>
+  (v ?? dflt).toString().replace(/\r?\n/g, '').trim();
 
+// Ensure any later code sees clean values
+process.env.DATA_DIR   = sanitizeEnvPath(process.env.DATA_DIR,   '/mnt/data');
+process.env.BACKUP_DIR = sanitizeEnvPath(process.env.BACKUP_DIR, '/mnt/data/backups');
+
+// (Optional) quick log to verify at boot
+console.log('[ENV NORMALIZED]', {
+  DATA_DIR: process.env.DATA_DIR,
+  BACKUP_DIR: process.env.BACKUP_DIR
+});
+
+// (next line in your file)
 const app = express();
 
 // ---------- CORS ----------
@@ -41,8 +78,8 @@ if (originsEnv.length) {
 app.use(express.json());
 
 // ---------- Directories ----------
-const dataDirRaw   = process.env.DATA_DIR   || './data';
-const backupDirRaw = process.env.BACKUP_DIR || 'backups';
+const dataDirRaw   = (process.env.DATA_DIR   || './data').replace(/\r?\n/g, '').trim();
+const backupDirRaw = (process.env.BACKUP_DIR || 'backups').replace(/\r?\n/g, '').trim();
 
 const dataDir   = path.isAbsolute(dataDirRaw) ? dataDirRaw : path.join(__dirname, dataDirRaw);
 const backupDir = path.isAbsolute(backupDirRaw) ? backupDirRaw : path.join(dataDir, backupDirRaw);
@@ -62,6 +99,104 @@ const storage = multer.diskStorage({
   filename: (req, file, cb) => cb(null, file.originalname),
 });
 const upload = multer({ storage });
+// ---------- Chat (roster-restricted) ----------
+app.get('/api/check-roster', (req, res) => {
+  try {
+    const q = (req.query.name || '').toString().trim();
+    if (!q) return res.json({ allowed: false });
+
+    const rosterPath = path.join(dataDir, 'roster.json');
+    if (!fs.existsSync(rosterPath)) return res.json({ allowed: false });
+
+    const raw = fs.readFileSync(rosterPath, 'utf8');
+    let roster = [];
+    try { roster = JSON.parse(raw); } catch { return res.json({ allowed: false }); }
+
+    const norm = s => s.toString().trim().toLowerCase();
+    const allowed = Array.isArray(roster) && roster.some(r => {
+      if (typeof r === 'string') return norm(r) === norm(q);
+      if (r && typeof r.name === 'string') return norm(r.name) === norm(q);
+      return false;
+    });
+
+    return res.json({ allowed: !!allowed });
+  } catch {
+    return res.json({ allowed: false });
+  }
+});
+
+app.get('/api/chat', (req, res) => {
+  const filePath = path.join(dataDir, 'chat.json');
+  fs.readFile(filePath, 'utf8', (err, data) => {
+    if (err) return res.json([]);
+    try { res.json(JSON.parse(data)); }
+    catch { res.json([]); }
+  });
+});
+
+app.post('/api/chat', (req, res) => {
+  const chatPath   = path.join(dataDir, 'chat.json');
+  const rosterPath = path.join(dataDir, 'roster.json');
+
+  const nameRaw = (req.body?.name || '').toString().trim();
+  const messageRaw = (req.body?.message || '').toString().trim();
+
+  // Basic input checks
+  if (!nameRaw || !messageRaw) {
+    return res.status(400).json({ error: 'Missing name or message.' });
+  }
+  if (messageRaw.length > 1000) {
+    return res.status(400).json({ error: 'Message too long.' });
+  }
+
+  // Roster enforcement
+  try {
+    if (!fs.existsSync(rosterPath)) {
+      return res.status(403).json({ error: 'Only registered game names may post in chat.' });
+    }
+    const raw = fs.readFileSync(rosterPath, 'utf8');
+    const roster = JSON.parse(raw);
+    const norm = s => s.toString().trim().toLowerCase();
+
+    const isOnRoster = Array.isArray(roster) && roster.some(r => {
+      if (typeof r === 'string') return norm(r) === norm(nameRaw);
+      if (r && typeof r.name === 'string') return norm(r.name) === norm(nameRaw);
+      return false;
+    });
+
+    if (!isOnRoster) {
+      return res.status(403).json({ error: 'Only registered game names may post in chat.' });
+    }
+  } catch {
+    return res.status(500).json({ error: 'Roster validation failed.' });
+  }
+
+  const newMessage = {
+    name: nameRaw,
+    message: messageRaw,
+    timestamp: new Date().toISOString(),
+  };
+
+  // Save + keep last 50; back up existing file
+  fs.readFile(chatPath, 'utf8', (err, data) => {
+    let messages = [];
+    if (!err) {
+      try {
+        messages = JSON.parse(data);
+        if (fs.existsSync(chatPath)) {
+          const backupPath = path.join(backupDir, `${Date.now()}_chat.json`);
+          try { fs.copyFileSync(chatPath, backupPath); } catch {}
+        }
+      } catch {}
+    }
+    messages.push(newMessage);
+    fs.writeFile(chatPath, JSON.stringify(messages.slice(-50), null, 2), e => {
+      if (e) return res.status(500).json({ error: 'Failed to save message' });
+      res.json({ success: true });
+    });
+  });
+});
+
 // ------- HOTFIX: reliable JSON upload (wins by being registered first) -------
 app.post('/api/upload/json-direct', upload.single('file'), (req, res) => {
   try {
@@ -570,7 +705,32 @@ app.get('/api/rules', (req, res) => {
   }
 });
 
-// ---------- Chat ----------
+// ---------- Chat (roster-restricted) ----------
+app.get('/api/check-roster', (req, res) => {
+  try {
+    const q = (req.query.name || '').toString().trim();
+    if (!q) return res.json({ allowed: false });
+
+    const rosterPath = path.join(dataDir, 'roster.json');
+    if (!fs.existsSync(rosterPath)) return res.json({ allowed: false });
+
+    const raw = fs.readFileSync(rosterPath, 'utf8');
+    let roster = [];
+    try { roster = JSON.parse(raw); } catch { return res.json({ allowed: false }); }
+
+    const norm = s => s.toString().trim().toLowerCase();
+    const allowed = Array.isArray(roster) && roster.some(r => {
+      if (typeof r === 'string') return norm(r) === norm(q);
+      if (r && typeof r.name === 'string') return norm(r.name) === norm(q);
+      return false;
+    });
+
+    return res.json({ allowed: !!allowed });
+  } catch {
+    return res.json({ allowed: false });
+  }
+});
+
 app.get('/api/chat', (req, res) => {
   const filePath = path.join(dataDir, 'chat.json');
   fs.readFile(filePath, 'utf8', (err, data) => {
@@ -581,20 +741,62 @@ app.get('/api/chat', (req, res) => {
 });
 
 app.post('/api/chat', (req, res) => {
-  const filePath = path.join(dataDir, 'chat.json');
-  const newMessage = { name: req.body?.name, message: req.body?.message, timestamp: new Date().toISOString() };
+  const chatPath   = path.join(dataDir, 'chat.json');
+  const rosterPath = path.join(dataDir, 'roster.json');
 
-  fs.readFile(filePath, 'utf8', (err, data) => {
+  const nameRaw = (req.body?.name || '').toString().trim();
+  const messageRaw = (req.body?.message || '').toString().trim();
+
+  // Basic input checks
+  if (!nameRaw || !messageRaw) {
+    return res.status(400).json({ error: 'Missing name or message.' });
+  }
+  if (messageRaw.length > 1000) {
+    return res.status(400).json({ error: 'Message too long.' });
+  }
+
+  // Roster enforcement
+  try {
+    if (!fs.existsSync(rosterPath)) {
+      return res.status(403).json({ error: 'Only registered game names may post in chat.' });
+    }
+    const raw = fs.readFileSync(rosterPath, 'utf8');
+    const roster = JSON.parse(raw);
+    const norm = s => s.toString().trim().toLowerCase();
+
+    const isOnRoster = Array.isArray(roster) && roster.some(r => {
+      if (typeof r === 'string') return norm(r) === norm(nameRaw);
+      if (r && typeof r.name === 'string') return norm(r.name) === norm(nameRaw);
+      return false;
+    });
+
+    if (!isOnRoster) {
+      return res.status(403).json({ error: 'Only registered game names may post in chat.' });
+    }
+  } catch {
+    return res.status(500).json({ error: 'Roster validation failed.' });
+  }
+
+  const newMessage = {
+    name: nameRaw,
+    message: messageRaw,
+    timestamp: new Date().toISOString(),
+  };
+
+  // Save + keep last 50; back up existing file
+  fs.readFile(chatPath, 'utf8', (err, data) => {
     let messages = [];
     if (!err) {
       try {
         messages = JSON.parse(data);
-        const backupPath = path.join(backupDir, `${Date.now()}_chat.json`);
-        if (fs.existsSync(filePath)) fs.copyFileSync(filePath, backupPath);
+        if (fs.existsSync(chatPath)) {
+          const backupPath = path.join(backupDir, `${Date.now()}_chat.json`);
+          try { fs.copyFileSync(chatPath, backupPath); } catch {}
+        }
       } catch {}
     }
     messages.push(newMessage);
-    fs.writeFile(filePath, JSON.stringify(messages.slice(-50), null, 2), e => {
+    fs.writeFile(chatPath, JSON.stringify(messages.slice(-50), null, 2), e => {
       if (e) return res.status(500).json({ error: 'Failed to save message' });
       res.json({ success: true });
     });
