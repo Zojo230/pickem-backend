@@ -132,6 +132,42 @@ app.post('/api/admin/clear-chat', (req, res) => {
     return res.status(500).json({ ok: false, error: e.message });
   }
 });
+// ---------- Admin: Clear Chat ----------
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
+
+function authOk(req) {
+  // If you set ADMIN_TOKEN in Render, require ?key=YOURTOKEN on the URL.
+  // If not set, this stays open (simple mode).
+  if (!ADMIN_TOKEN) return true;
+  return (req.query.key || '') === ADMIN_TOKEN;
+}
+
+function clearChatHandler(req, res) {
+  if (!authOk(req)) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const chatPath = path.join(dataDir, 'chat.json');
+
+    // Backup current chat.json (if any)
+    if (fs.existsSync(chatPath)) {
+      try {
+        const backupPath = path.join(backupDir, `${Date.now()}_chat.json`);
+        fs.copyFileSync(chatPath, backupPath);
+      } catch {
+        /* ignore backup errors */
+      }
+    }
+
+    // Clear chat
+    fs.writeFileSync(chatPath, '[]', 'utf8');
+    return res.json({ ok: true, cleared: true });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+}
+
+// Allow both POST and GET for convenience
+app.post('/api/admin/clear-chat', clearChatHandler);
+app.get('/api/admin/clear-chat', clearChatHandler);
 
 // ---------- Chat (roster-restricted) ----------
 app.get('/api/check-roster', (req, res) => {
