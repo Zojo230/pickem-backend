@@ -101,45 +101,11 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // ---------- Admin: Clear Chat ----------
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
-
 function authOk(req) {
-  // If you set ADMIN_TOKEN in Render, require ?key=YOURTOKEN on the URL.
-  // If not set, this stays open (simple mode).
-  if (!ADMIN_TOKEN) return true;
-  return (req.query.key || '') === ADMIN_TOKEN;
-}
-
-app.post('/api/admin/clear-chat', (req, res) => {
-  if (!authOk(req)) return res.status(403).json({ error: 'Forbidden' });
-  try {
-    const chatPath = path.join(dataDir, 'chat.json');
-
-    // Backup current chat.json (if any)
-    if (fs.existsSync(chatPath)) {
-      try {
-        const backupPath = path.join(backupDir, `${Date.now()}_chat.json`);
-        fs.copyFileSync(chatPath, backupPath);
-      } catch {
-        /* ignore backup errors */
-      }
-    }
-
-    // Clear chat
-    fs.writeFileSync(chatPath, '[]', 'utf8');
-    return res.json({ ok: true, cleared: true });
-  } catch (e) {
-    return res.status(500).json({ ok: false, error: e.message });
-  }
-});
-// ---------- Admin: Clear Chat ----------
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
-
-function authOk(req) {
-  // If you set ADMIN_TOKEN in Render, require ?key=YOURTOKEN on the URL.
-  // If not set, this stays open (simple mode).
-  if (!ADMIN_TOKEN) return true;
-  return (req.query.key || '') === ADMIN_TOKEN;
+  // Read token on demand; no global const => avoids duplicate declarations
+  const ADMIN_TKN = (process.env.ADMIN_TOKEN || '').trim();
+  if (!ADMIN_TKN) return true;                 // if no token configured, allow
+  return (req.query.key || '') === ADMIN_TKN;  // else require ?key=YOURTOKEN
 }
 
 function clearChatHandler(req, res) {
@@ -152,9 +118,7 @@ function clearChatHandler(req, res) {
       try {
         const backupPath = path.join(backupDir, `${Date.now()}_chat.json`);
         fs.copyFileSync(chatPath, backupPath);
-      } catch {
-        /* ignore backup errors */
-      }
+      } catch { /* ignore backup errors */ }
     }
 
     // Clear chat
