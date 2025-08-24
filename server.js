@@ -776,44 +776,67 @@ app.post('/api/upload/scores', upload.single('file'), (req, res) => {
   res.send(`✅ Scores uploaded and winners calculated for Week ${week}`);
 });
 
-// ---------- Roster upload (Excel) ----------
+// ---------- Roster upload (Excel) — with Balance ----------
 app.post('/api/upload/roster', upload.single('file'), (req, res) => {
   const file = req.file;
   if (!file) return res.status(400).send('No file uploaded.');
 
-  const filePath = path.join(dataDir, 'roster.json');
+  const filePath  = path.join(dataDir, 'roster.json');
   const backupPath = path.join(backupDir, `${Date.now()}_roster.json`);
   const ext = path.extname(file.originalname).toLowerCase();
 
   if (!['.xlsx', '.xls'].includes(ext)) {
-    return res.status(400).send('Unsupported file type. Please upload an Excel file.');
+    return res.status(400).send('Unsupported file type. Please upload an Excel (.xlsx/.xls) file.');
   }
 
-  if (fs.existsSync(filePath)) {
-    fs.copyFileSync(filePath, backupPath);
-  }
+  // Backup existing roster.json (if any)
+  try {
+    if (fs.existsSync(filePath)) {
+      fs.copyFileSync(filePath, backupPath);
+    }
+  } catch { /* ignore backup errors */ }
 
   try {
     const workbook = xlsx.readFile(file.path);
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const raw = xlsx.utils.sheet_to_json(sheet, { header: 1 });
 
-    const header = (raw[0] || []).map(h => h?.toString().trim().toLowerCase());
-    const nameIdx = header.indexOf('name');
-    const pinIdx  = header.indexOf('pin');
-    if (nameIdx === -1 || pinIdx === -1) {
-      return res.status(400).send('Missing "name" or "pin" columns in roster file.');
+    if (!raw || raw.length < 2) {
+      return res.status(400).send('Roster sheet is empty or missing headers.');
     }
 
-    const roster = raw.slice(1)
-      .map(row => ({ name: row[nameIdx]?.toString().trim(), pin: row[pinIdx]?.toString().trim() }))
-      .filter(p => p.name && p.pin);
+    // Case-insensitive header lookup
+    const header = (raw[0] || []).map(h => h?.toString().trim().toLowerCase());
+    const idxName = header.findIndex(h => h === 'name' || h === 'player' || h === 'gamename');
+    const idxPin  = header.findIndex(h => h === 'pin' || h === 'passcode' || h === 'password');
+    // Accept common variants for balance
+    const idxBal  = header.findIndex(h => ['balance','paid','payment','amount'].includes(h));
+
+    if (idxName === -1 || idxPin === -1) {
+      return res.status(400).send('Missing "Name" and/or "PIN" columns in roster file.');
+    }
+
+    const toNumber = (v) => {
+      if (v == null || v === '') return 0;
+      // strip $ and commas
+      const n = Number(String(v).replace(/[$,]/g, '').trim());
+      return Number.isFinite(n) ? n : 0;
+    };
+
+    const roster = raw.slice(1).map((row, i) => {
+      const name = row[idxName]?.toString().trim();
+      const pin  = row[idxPin]?.toString().trim();
+      const bal  = idxBal === -1 ? 0 : toNumber(row[idxBal]);
+
+      if (!name || !pin) return null;
+      return { name, pin, Balance: bal };
+    }).filter(Boolean);
 
     fs.writeFileSync(filePath, JSON.stringify(roster, null, 2));
-    res.send(`✅ Roster uploaded successfully. ${roster.length} players added.`);
+    return res.send(`✅ Roster uploaded. ${roster.length} players saved with Balance.`);
   } catch (err) {
     console.error('❌ Failed to parse roster:', err);
-    res.status(500).send('Failed to process roster file.');
+    return res.status(500).send('Failed to process roster file.');
   }
 });
 
