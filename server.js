@@ -179,6 +179,29 @@ app.get('/api/lock-status', (req, res) => {
     revealPicks: isLockedNow(week)
   });
 });
+// --- Has this player already submitted for week? (GET) ---
+app.get('/api/player-has-submitted', (req, res) => {
+  try {
+    const name = String(req.query.name || '').trim().toLowerCase();
+    const week = Number(req.query.week || 0);
+    if (!name || !week) return res.status(400).json({ ok: false, error: 'Missing name or week' });
+
+    const filename = path.join(dataDir, `picks_week_${week}.json`);
+    if (!fs.existsSync(filename)) return res.json({ ok: true, submitted: false });
+
+    const raw = fs.readFileSync(filename, 'utf8') || '[]';
+    let arr = [];
+    try { arr = JSON.parse(raw); } catch {}
+
+    const submitted = Array.isArray(arr) && arr.some(
+      e => String(e.player || '').trim().toLowerCase() === name
+    );
+
+    return res.json({ ok: true, submitted });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || 'Check failed' });
+  }
+});
 
 // Serve /data but hide the picks file until cutoff
 app.use('/data', (req, res, next) => {
@@ -282,14 +305,10 @@ app.get('/api/winners_week_:week.json', (req, res) => {
   return sendJsonFile(res, filePath);
 });
 
-// Alias: /api/picks_week_X.json -> /data/picks_week_X.json (respect cutoff)
-// Allow reads from the Player Picks page (referer contains /picks); hide elsewhere before cutoff
+// Alias: /api/picks_week_X.json -> /data/picks_week_X.json (hidden until cutoff)
 app.get('/api/picks_week_:week.json', (req, res) => {
   const week = Number(req.params.week) || getCurrentWeekNumber();
-  const ref = (req.get('referer') || '').toLowerCase();
-  const fromPicksPage = ref.includes('/picks');
-
-  if (!fromPicksPage && !isLockedNow(week)) {
+  if (!isLockedNow(week)) {
     return res.status(403).json({
       error: 'All Players’ picks are hidden until Thursday at 1:00 PM CT.',
       week,
@@ -438,46 +457,6 @@ app.post('/api/chat', (req, res) => {
   });
 });
 
-// ------- HOTFIX: reliable JSON upload (wins by being registered first) -------
-app.post('/api/upload/json-direct', upload.single('file'), (req, res) => {
-  try {
-    const f = req.file;
-    if (!f) return res.status(400).json({ error: 'No file uploaded.' });
-
-    const original = (f.originalname || '').trim().toLowerCase();
-    const m = original.match(/^(games|scores)[-_ ]?week[-_ ]?(\d+)(?:\.json)?$/i);
-    if (!m) return res.status(400).json({ error: 'Filename must be games_week_X.json or scores_week_X.json' });
-
-    const kind = m[1].toLowerCase();
-    const week = parseInt(m[2], 10);
-
-    const text = fs.readFileSync(f.path, 'utf8').replace(/^\uFEFF/, '').trim();
-    let payload; try { payload = JSON.parse(text); } catch { return res.status(400).json({ error: 'Uploaded file is not valid JSON.' }); }
-    if (!Array.isArray(payload)) return res.status(400).json({ error: 'JSON must be an array.' });
-
-    const outName = `${kind}_week_${week}.json`;
-    const outPath = path.join(dataDir, outName);
-
-    const force = ['true','1','yes','on'].includes(String(req.body.force || req.body.overwrite || '').toLowerCase());
-    if (fs.existsSync(outPath) && !force) return res.status(409).json({ message: `${outName} already exists. Overwrite?` });
-    if (fs.existsSync(outPath) && force) {
-      try { fs.mkdirSync(backupDir, { recursive: true }); fs.copyFileSync(outPath, path.join(backupDir, `${Date.now()}_${outName}`)); } catch {}
-    }
-
-    fs.writeFileSync(outPath, JSON.stringify(payload, null, 2));
-
-    if (kind === 'games') {
-      fs.writeFileSync(path.join(dataDir, 'current_week.json'), JSON.stringify({ currentWeek: week }, null, 2));
-    } else {
-      try { calculateTotalWinners(week); calculateWinnersFromList(week); } catch (e) { console.warn('Auto-calc failed:', e?.message); }
-    }
-
-    return res.json({ ok: true, kind, week, savedAs: outName });
-  } catch (err) {
-    console.error('[hotfix json-direct] error:', err);
-    return res.status(500).json({ error: 'Server error.' });
-  }
-});
 
 // ---------- Helpers ----------
 function formatExcelTime(excelTime) {
@@ -838,34 +817,75 @@ app.post('/api/upload/roster', upload.single('file'), (req, res) => {
   }
 });
 
-// ---------- Picks submission ----------
+// ---------- Picks submission (FINAL — deny duplicate submissions) ----------
 app.post('/submit-picks/:week', (req, res) => {
-  const week = parseInt(req.params.week, 10);
-  const { player, pin, picks } = req.body || {};
-  if (!player || !pin || !Array.isArray(picks)) {
-    return res.status(400).json({ success: false, error: 'Missing data.' });
-  }
-
-  const filename = path.join(dataDir, `picks_week_${week}.json`);
-  let data = [];
-  if (fs.existsSync(filename)) {
-    try {
-      const backupPath = path.join(backupDir, `${Date.now()}_picks_week_${week}.json`);
-      fs.copyFileSync(filename, backupPath);
-      data = JSON.parse(fs.readFileSync(filename, 'utf8'));
-    } catch {
-      return res.status(500).json({ success: false, error: 'Error reading picks file.' });
-    }
-  }
-
-  const newData = data.filter(entry => (entry.player || '').toLowerCase() !== player.toLowerCase());
-  newData.push({ player, pin, picks, week });
-
   try {
-    fs.writeFileSync(filename, JSON.stringify(newData, null, 2));
-    res.json({ success: true });
+    const weekParam = parseInt(req.params.week, 10);
+    const week = Number.isFinite(weekParam) && weekParam > 0 ? weekParam : 1;
+
+    // Respect your existing Thursday cutoff guard (it already runs earlier in the file)
+
+    // Accept common field names from the frontend
+    const name = String(
+      (req.body?.name ?? req.body?.gameName ?? req.body?.player ?? req.body?.playerName ?? '')
+    ).trim();
+    const pin  = String((req.body?.pin ?? req.body?.PIN ?? req.body?.password ?? '')).trim();
+    const picksIn = Array.isArray(req.body?.picks) ? req.body.picks : null;
+
+    if (!name || !pin || !picksIn) {
+      return res.status(400).json({ success: false, error: 'Missing data.' });
+    }
+
+    // Normalize picks -> [{gameIndex:Number, pick:String}]
+    const picks = picksIn
+      .map(p => ({
+        gameIndex: Number(p?.gameIndex),
+        pick: String(p?.pick || '').trim(),
+      }))
+      .filter(p => Number.isFinite(p.gameIndex) && p.pick);
+
+    if (picks.length === 0) {
+      return res.status(400).json({ success: false, error: 'No valid picks.' });
+    }
+    if (picks.length > 10) {
+      return res.status(400).json({ success: false, error: 'Max 10 picks allowed.' });
+    }
+
+    const filename = path.join(dataDir, `picks_week_${week}.json`);
+    let data = [];
+    if (fs.existsSync(filename)) {
+      try {
+        data = JSON.parse(fs.readFileSync(filename, 'utf8') || '[]');
+      } catch {
+        return res.status(500).json({ success: false, error: 'Error reading picks file.' });
+      }
+    }
+
+    // 🔒 If this player already submitted for this week, reject (no overwrite)
+    const already = data.some(e => (e.player || '').trim().toLowerCase() === name.toLowerCase());
+    if (already) {
+      return res.status(409).json({
+        success: false,
+        alreadySubmitted: true,
+        error: 'Your picks for this week have already been submitted.'
+      });
+    }
+
+    // Best-effort backup before writing
+    try {
+      if (fs.existsSync(filename)) {
+        fs.mkdirSync(backupDir, { recursive: true });
+        fs.copyFileSync(filename, path.join(backupDir, `${Date.now()}_picks_week_${week}.json`));
+      }
+    } catch { /* ignore backup errors */ }
+
+    // Append as a new entry (never overwrite)
+    data.push({ player: name, pin, picks, week, submittedAt: new Date().toISOString() });
+
+    fs.writeFileSync(filename, JSON.stringify(data, null, 2));
+    return res.json({ success: true });
   } catch {
-    res.status(500).json({ success: false, error: 'Failed to save picks.' });
+    return res.status(500).json({ success: false, error: 'Failed to save picks.' });
   }
 });
 
