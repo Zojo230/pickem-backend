@@ -911,6 +911,93 @@ app.post('/submit-picks/:week', (req, res) => {
     return res.status(500).json({ success: false, error: 'Failed to save picks.' });
   }
 });
+// --- Compatibility alias so the frontend can POST /api/submit-picks with { week, player, pin, picks }
+app.post('/api/submit-picks', async (req, res) => {
+  try {
+    // Week: body.week if provided; else read current_week.json; else 1
+    let week = Number(req.body?.week);
+    if (!Number.isFinite(week) || week <= 0) {
+      try {
+        const cw = JSON.parse(
+          fs.readFileSync(path.join(dataDir, 'current_week.json'), 'utf8')
+        );
+        week = cw?.currentWeek ?? cw?.week ?? 1;
+      } catch {
+        week = 1;
+      }
+    }
+
+    const name = String(
+      req.body?.player ?? req.body?.playerName ?? req.body?.gameName ?? ''
+    ).trim();
+    const pin = String(
+      req.body?.pin ?? req.body?.PIN ?? req.body?.password ?? ''
+    ).trim();
+    const picksIn = Array.isArray(req.body?.picks) ? req.body.picks : [];
+
+    if (!name || !pin || picksIn.length === 0) {
+      return res.status(400).json({ success: false, error: 'Missing data.' });
+    }
+    if (picksIn.length > 10) {
+      return res.status(400).json({ success: false, error: 'Max 10 picks allowed.' });
+    }
+
+    // Normalize picks -> [{gameIndex:Number, pick:String}]
+    const picks = picksIn
+      .map(p => ({
+        gameIndex: Number(p?.gameIndex),
+        pick: String(p?.pick || '').trim(),
+      }))
+      .filter(p => Number.isFinite(p.gameIndex) && p.pick);
+
+    const filename = path.join(dataDir, `picks_week_${week}.json`);
+    let data = [];
+    if (fs.existsSync(filename)) {
+      try {
+        data = JSON.parse(fs.readFileSync(filename, 'utf8') || '[]');
+      } catch {
+        return res.status(500).json({ success: false, error: 'Error reading picks file.' });
+      }
+    }
+
+    // Deny duplicate submissions by player (case-insensitive)
+    const already = data.some(
+      e => (e.player || '').trim().toLowerCase() === name.toLowerCase()
+    );
+    if (already) {
+      return res.status(409).json({
+        success: false,
+        alreadySubmitted: true,
+        error: 'Your picks for this week have already been submitted.',
+      });
+    }
+
+    // Optional: backup existing file
+    try {
+      if (fs.existsSync(filename)) {
+        fs.mkdirSync(backupDir, { recursive: true });
+        fs.copyFileSync(
+          filename,
+          path.join(backupDir, `${Date.now()}_picks_week_${week}.json`)
+        );
+      }
+    } catch { /* ignore backup errors */ }
+
+    data.push({
+      player: name,
+      pin,
+      picks,
+      week,
+      submittedAt: new Date().toISOString(),
+    });
+
+    fs.writeFileSync(filename, JSON.stringify(data, null, 2));
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('submit-picks alias error:', err);
+    return res.status(500).json({ success: false, error: 'Failed to save picks.' });
+  }
+});
 
 // ---------- Utility / Info ----------
 app.get('/api/currentWeek', (req, res) => {
