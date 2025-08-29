@@ -186,9 +186,12 @@ function shouldRevealPicksNow(weekNum) {
   return isLockedNow(weekNum); // auto
 }
 
-// Pre-guard: block pick submissions after cutoff (matches any POST path containing "picks")
+// Pre-guard: block **submissions** after cutoff (only submit-picks endpoints)
 app.use((req, res, next) => {
-  if (req.method === 'POST' && /picks/i.test(req.path)) {
+  const isSubmit =
+    req.method === 'POST' &&
+    /^\/(api\/)?submit-picks(\/|$)/i.test(req.path);
+  if (isSubmit) {
     const week = Number(req.query.week || req.body?.week) || getCurrentWeekNumber();
     if (isLockedNow(week)) {
       return res.status(403).json({
