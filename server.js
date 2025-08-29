@@ -94,7 +94,6 @@ for (const d of [uploadDir, dataDir, backupDir]) {
   if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
 }
 
-// Serve /data (handy for sanity checks)
 // ---------- Picks Cutoff (Thu 1:00 PM CT) + Reveal Picks After Cutoff ----------
 
 // Parse "YYYY-MM-DD hh:mm AM/PM" in local time (Render has TZ=America/Chicago)
@@ -151,6 +150,42 @@ function isLockedNow(weekNum) {
   return new Date() >= cutoff;
 }
 
+// ===== NEW: Picks Visibility setting (on|off|auto) =====
+const settingsPath = path.join(dataDir, 'app_settings.json');
+
+function readSettings() {
+  try {
+    if (!fs.existsSync(settingsPath)) return { picksVisibilityMode: 'auto' };
+    const j = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+    return j && typeof j === 'object' ? j : { picksVisibilityMode: 'auto' };
+  } catch {
+    return { picksVisibilityMode: 'auto' };
+  }
+}
+
+function writeSettings(obj) {
+  try {
+    if (fs.existsSync(settingsPath)) {
+      const backupName = `${Date.now()}_app_settings.json`;
+      fs.copyFileSync(settingsPath, path.join(backupDir, backupName));
+    }
+  } catch { /* ignore backup errors */ }
+  fs.writeFileSync(settingsPath, JSON.stringify(obj, null, 2));
+}
+
+function getPicksVisibilityMode() {
+  const s = readSettings();
+  const m = String(s.picksVisibilityMode || s.mode || 'auto').toLowerCase();
+  return ['on','off','auto'].includes(m) ? m : 'auto';
+}
+
+function shouldRevealPicksNow(weekNum) {
+  const mode = getPicksVisibilityMode();
+  if (mode === 'on')  return true;
+  if (mode === 'off') return false;
+  return isLockedNow(weekNum); // auto
+}
+
 // Pre-guard: block pick submissions after cutoff (matches any POST path containing "picks")
 app.use((req, res, next) => {
   if (req.method === 'POST' && /picks/i.test(req.path)) {
@@ -176,43 +211,46 @@ app.get('/api/lock-status', (req, res) => {
     cutoffISO: cutoff ? cutoff.toISOString() : null,
     timezone: 'America/Chicago',
     isLocked: isLockedNow(week),
-    revealPicks: isLockedNow(week)
+    revealPicks: shouldRevealPicksNow(week),
+    mode: getPicksVisibilityMode()
   });
 });
-// --- Has this player already submitted for week? (GET) ---
-app.get('/api/player-has-submitted', (req, res) => {
-  try {
-    const name = String(req.query.name || '').trim().toLowerCase();
-    const week = Number(req.query.week || 0);
-    if (!name || !week) return res.status(400).json({ ok: false, error: 'Missing name or week' });
 
-    const filename = path.join(dataDir, `picks_week_${week}.json`);
-    if (!fs.existsSync(filename)) return res.json({ ok: true, submitted: false });
+// ===== NEW: API for picks visibility (Admin-controlled) =====
+function authOk(req) {
+  const ADMIN_TKN = (process.env.ADMIN_TOKEN || '').trim();
+  if (!ADMIN_TKN) return true;                 // if no token configured, allow
+  return (req.query.key || '') === ADMIN_TKN;  // else require ?key=YOURTOKEN
+}
 
-    const raw = fs.readFileSync(filename, 'utf8') || '[]';
-    let arr = [];
-    try { arr = JSON.parse(raw); } catch {}
-
-    const submitted = Array.isArray(arr) && arr.some(
-      e => String(e.player || '').trim().toLowerCase() === name
-    );
-
-    return res.json({ ok: true, submitted });
-  } catch (e) {
-    return res.status(500).json({ ok: false, error: e.message || 'Check failed' });
-  }
+app.get('/api/picks-visibility', (req, res) => {
+  const mode = getPicksVisibilityMode();
+  const week = Number(req.query.week) || getCurrentWeekNumber();
+  res.json({ mode, revealNow: (mode === 'on') ? true : (mode === 'off') ? false : isLockedNow(week) });
 });
 
-// Serve /data but hide the picks file until cutoff
+app.post('/api/picks-visibility', express.json(), (req, res) => {
+  if (!authOk(req)) return res.status(403).json({ error: 'Forbidden' });
+  const mode = String(req.body?.mode || '').toLowerCase();
+  if (!['on','off','auto'].includes(mode)) {
+    return res.status(400).json({ error: 'mode must be "on", "off", or "auto"' });
+  }
+  const current = readSettings();
+  writeSettings({ ...current, picksVisibilityMode: mode });
+  res.json({ ok: true, mode });
+});
+
+// Serve /data but hide the picks file unless allowed by visibility
 app.use('/data', (req, res, next) => {
   const m = req.path.match(/^\/picks_week_(\d+)\.json$/i);
   if (m) {
     const week = Number(m[1]) || getCurrentWeekNumber();
-    if (!isLockedNow(week)) {
+    if (!shouldRevealPicksNow(week)) {
       return res.status(403).json({
-        error: 'All Players’ picks are hidden until Thursday at 1:00 PM CT.',
+        error: 'All Players’ picks are currently hidden.',
         week,
-        cutoffISO: computeCutoffForWeek(week)?.toISOString() || null
+        cutoffISO: computeCutoffForWeek(week)?.toISOString() || null,
+        mode: getPicksVisibilityMode()
       });
     }
   }
@@ -305,14 +343,15 @@ app.get('/api/winners_week_:week.json', (req, res) => {
   return sendJsonFile(res, filePath);
 });
 
-// Alias: /api/picks_week_X.json -> /data/picks_week_X.json (hidden until cutoff)
+// Alias: /api/picks_week_X.json -> /data/picks_week_X.json (obeys visibility setting)
 app.get('/api/picks_week_:week.json', (req, res) => {
   const week = Number(req.params.week) || getCurrentWeekNumber();
-  if (!isLockedNow(week)) {
+  if (!shouldRevealPicksNow(week)) {
     return res.status(403).json({
-      error: 'All Players’ picks are hidden until Thursday at 1:00 PM CT.',
+      error: 'All Players’ picks are currently hidden.',
       week,
-      cutoffISO: computeCutoffForWeek(week)?.toISOString() || null
+      cutoffISO: computeCutoffForWeek(week)?.toISOString() || null,
+      mode: getPicksVisibilityMode()
     });
   }
   const filePath = path.join(dataDir, `picks_week_${week}.json`);
@@ -327,13 +366,6 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // ---------- Admin: Clear Chat ----------
-function authOk(req) {
-  // Read token on demand; no global const => avoids duplicate declarations
-  const ADMIN_TKN = (process.env.ADMIN_TOKEN || '').trim();
-  if (!ADMIN_TKN) return true;                 // if no token configured, allow
-  return (req.query.key || '') === ADMIN_TKN;  // else require ?key=YOURTOKEN
-}
-
 function clearChatHandler(req, res) {
   if (!authOk(req)) return res.status(403).json({ error: 'Forbidden' });
   try {
