@@ -514,6 +514,86 @@ function normalizeName(str) {
     .replace(/state$/i, 'st')
     .toLowerCase();
 }
+// ===== TEAM NAME MAP + SCORES NORMALIZER =====
+const teamNameMapPath = path.join(dataDir, 'team_name_map.json');
+
+function loadTeamNameMap() {
+  try {
+    if (!fs.existsSync(teamNameMapPath)) return {};
+    const j = JSON.parse(fs.readFileSync(teamNameMapPath, 'utf8'));
+    return j && typeof j === 'object' ? j : {};
+  } catch { return {}; }
+}
+
+function mapToMascot(name, map) {
+  if (!name) return '';
+  // direct key or trimmed key
+  return map[name] || map[String(name).trim()] || name;
+}
+
+function sameTeam(a, b) {
+  return normalizeName(a) === normalizeName(b);
+}
+
+/**
+ * Verify & normalize ESPN scores:
+ * - Translate short names -> mascot names (via team_name_map.json, if present)
+ * - Order each record to match games_week_{week}.json (flip scores if needed)
+ * - Drop extras, report unmatched
+ * Returns { ordered, report }
+ */
+function verifyNormalizeScores(week, incomingScores) {
+  const report = { week, matched: 0, swapped: 0, dropped: [], unmatchedGames: [] };
+
+  const gamesPath = path.join(dataDir, `games_week_${week}.json`);
+  if (!fs.existsSync(gamesPath)) {
+    throw new Error(`Missing games_week_${week}.json`);
+  }
+  const games = JSON.parse(fs.readFileSync(gamesPath, 'utf8')) || [];
+  const map = loadTeamNameMap();
+
+  const used = new Set();
+  const ordered = [];
+
+  for (const g of games) {
+    const g1 = g.team1, g2 = g.team2;
+
+    const idx = (incomingScores || []).findIndex(s => {
+      const s1 = mapToMascot(s.team1, map);
+      const s2 = mapToMascot(s.team2, map);
+      return (sameTeam(s1, g1) && sameTeam(s2, g2)) || (sameTeam(s1, g2) && sameTeam(s2, g1));
+    });
+
+    if (idx === -1) {
+      report.unmatchedGames.push(`${g1} vs ${g2}`);
+      continue;
+    }
+
+    const s = incomingScores[idx];
+    used.add(idx);
+
+    const s1m = mapToMascot(s.team1, map);
+    const s2m = mapToMascot(s.team2, map);
+    const needsSwap = sameTeam(s1m, g2) && sameTeam(s2m, g1);
+    if (needsSwap) report.swapped++;
+
+    ordered.push({
+      date: s.date || '',
+      team1: g1,
+      score1: needsSwap ? s.score2 : s.score1,
+      team2: g2,
+      score2: needsSwap ? s.score1 : s.score2
+    });
+    report.matched++;
+  }
+
+  // Anything not matched → dropped
+  (incomingScores || []).forEach((s, i) => {
+    if (!used.has(i)) report.dropped.push(`${s.team1} vs ${s.team2}`);
+  });
+
+  return { ordered, report };
+}
 
 // ---------- Winners calculation ----------
 function calculateTotalWinners(week) {
@@ -608,7 +688,7 @@ function calculateWinnersFromList(week) {
   console.log('📊 totals.json updated');
 }
 
-// ---------- JSON upload (games|scores) ----------
+// ---------- JSON upload (games|scores) — with scores verify/normalize ----------
 app.post('/api/upload/json-direct', upload.single('file'), async (req, res) => {
   try {
     const file = req.file;
@@ -624,7 +704,7 @@ app.post('/api/upload/json-direct', upload.single('file'), async (req, res) => {
     const targetName = `${kind}_week_${week}.json`;
     const targetPath = path.join(dataDir, targetName);
 
-    // Read and validate JSON
+    // Read & parse JSON (upload)
     const text = fs.readFileSync(file.path, 'utf8').replace(/^\uFEFF/, '').trim();
     let parsed;
     try { parsed = JSON.parse(text); }
@@ -639,12 +719,45 @@ app.post('/api/upload/json-direct', upload.single('file'), async (req, res) => {
       fs.copyFileSync(targetPath, path.join(backupDir, backupName));
     }
 
-    fs.writeFileSync(targetPath, JSON.stringify(parsed, null, 2));
-    console.log(`[json-direct] Saved ${targetName}`);
+    // Always keep a copy of the raw upload for scores
+    if (kind === 'scores') {
+      const rawBackup = path.join(backupDir, `${Date.now()}_RAW_${targetName}`);
+      try { fs.writeFileSync(rawBackup, JSON.stringify(parsed, null, 2)); } catch {}
+    }
 
-    // Side-effects
+    // Save file (games as-is; scores go through verify/normalize)
+    let savedBody = parsed;
+    let verifyReport = null;
+
+    if (kind === 'scores') {
+      try {
+        const { ordered, report } = verifyNormalizeScores(week, Array.isArray(parsed) ? parsed : []);
+        savedBody = ordered;
+        verifyReport = report;
+
+        // Also write a report for your review
+        try {
+          fs.writeFileSync(
+            path.join(backupDir, `${Date.now()}_verify_report_week_${week}.json`),
+            JSON.stringify(report, null, 2)
+          );
+        } catch {}
+      } catch (e) {
+        return res.status(400).json({ error: `Verify/normalize failed: ${e.message}` });
+      }
+    }
+
+    fs.writeFileSync(targetPath, JSON.stringify(savedBody, null, 2));
+    console.log(`[json-direct] Saved ${targetName}${kind === 'scores' ? ' (normalized)' : ''}`);
+
+    // Side-effects (same as before)
     if (kind === 'games') {
-      fs.writeFileSync(path.join(dataDir, 'current_week.json'), JSON.stringify({ currentWeek: week }, null, 2));
+      try {
+        fs.writeFileSync(
+          path.join(dataDir, 'current_week.json'),
+          JSON.stringify({ currentWeek: week }, null, 2)
+        );
+      } catch {}
     } else {
       try {
         calculateTotalWinners(week);
@@ -652,7 +765,10 @@ app.post('/api/upload/json-direct', upload.single('file'), async (req, res) => {
       } catch (e) { console.warn('Auto-calc failed:', e?.message); }
     }
 
-    return res.json({ ok: true, kind, week, savedAs: targetName });
+    return res.json({
+      ok: true, kind, week, savedAs: targetName,
+      ...(verifyReport ? { verifyReport } : {})
+    });
   } catch (err) {
     console.error('/api/upload/json-direct error:', err);
     return res.status(500).json({ error: 'Server error.' });
@@ -1032,6 +1148,51 @@ app.post('/api/submit-picks', async (req, res) => {
     console.error('submit-picks alias error:', err);
     return res.status(500).json({ success: false, error: 'Failed to save picks.' });
   }
+});
+// ---------- Picks stats (submitted/missing) ----------
+app.get('/api/stats/picks', (req, res) => {
+  const week = Number(req.query.week) || getCurrentWeekNumber();
+  const rosterPath = path.join(dataDir, 'roster.json');
+  const picksPath  = path.join(dataDir, `picks_week_${week}.json`);
+
+  // roster names
+  let rosterNames = [];
+  try {
+    if (fs.existsSync(rosterPath)) {
+      const r = JSON.parse(fs.readFileSync(rosterPath, 'utf8'));
+      const rows = Array.isArray(r) ? r : Object.values(r || {});
+      rosterNames = rows
+        .map(v => (typeof v === 'string' ? v : (v?.name || v?.gameName || v?.player || '')))
+        .map(s => String(s || '').trim())
+        .filter(Boolean);
+    }
+  } catch {}
+
+  // submitted names (only count entries that have 10 picks)
+  let submitted = [];
+  try {
+    if (fs.existsSync(picksPath)) {
+      const p = JSON.parse(fs.readFileSync(picksPath, 'utf8')) || [];
+      submitted = p
+        .filter(row => Array.isArray(row?.picks) && row.picks.length >= 10)
+        .map(row => String(row?.player || '').trim())
+        .filter(Boolean);
+    }
+  } catch {}
+
+  const submittedSet = new Set(submitted);
+  const namesSubmitted = [...submittedSet].sort();
+  const namesMissing = rosterNames.filter(n => !submittedSet.has(n)).sort();
+
+  res.json({
+    week,
+    now_cst: new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }),
+    total_roster: rosterNames.length,
+    submitted_count: namesSubmitted.length,
+    missing_count: namesMissing.length,
+    names_submitted: namesSubmitted,
+    names_missing: namesMissing
+  });
 });
 
 // ---------- Utility / Info ----------
