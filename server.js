@@ -1155,7 +1155,7 @@ app.get('/api/stats/picks', (req, res) => {
   const rosterPath = path.join(dataDir, 'roster.json');
   const picksPath  = path.join(dataDir, `picks_week_${week}.json`);
 
-  // roster names
+  // 1) Read roster display names
   let rosterNames = [];
   try {
     if (fs.existsSync(rosterPath)) {
@@ -1168,30 +1168,45 @@ app.get('/api/stats/picks', (req, res) => {
     }
   } catch {}
 
-  // submitted names (only count entries that have 10 picks)
-  let submitted = [];
+  // 2) Canonicalizer (reuse your normalizeName to make it case/space robust)
+  const canon = (s) => normalizeName(String(s || '').trim());
+
+  // Map canonical -> display name from roster
+  const rosterCanonToDisplay = new Map(
+    rosterNames.map(n => [canon(n), n])
+  );
+
+  // 3) Build canonical set of submitted names (only entries with 10+ picks)
+  let submittedCanonSet = new Set();
   try {
     if (fs.existsSync(picksPath)) {
       const p = JSON.parse(fs.readFileSync(picksPath, 'utf8')) || [];
-      submitted = p
+      const submitted = p
         .filter(row => Array.isArray(row?.picks) && row.picks.length >= 10)
-        .map(row => String(row?.player || '').trim())
+        .map(row => String(row?.player || row?.gameName || row?.name || '').trim())
         .filter(Boolean);
+      submittedCanonSet = new Set(submitted.map(canon));
     }
   } catch {}
 
-  const submittedSet = new Set(submitted);
-  const namesSubmitted = [...submittedSet].sort();
-  const namesMissing = rosterNames.filter(n => !submittedSet.has(n)).sort();
+  // 4) Display lists (resolve canonical back to pretty roster names)
+  const names_submitted = [...submittedCanonSet]
+    .map(c => rosterCanonToDisplay.get(c) || c)
+    .sort();
+
+  const names_missing = [...rosterCanonToDisplay.keys()]
+    .filter(c => !submittedCanonSet.has(c))
+    .map(c => rosterCanonToDisplay.get(c))
+    .sort();
 
   res.json({
     week,
     now_cst: new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }),
     total_roster: rosterNames.length,
-    submitted_count: namesSubmitted.length,
-    missing_count: namesMissing.length,
-    names_submitted: namesSubmitted,
-    names_missing: namesMissing
+    submitted_count: names_submitted.length,
+    missing_count: names_missing.length,
+    names_submitted,
+    names_missing
   });
 });
 
