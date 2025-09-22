@@ -1435,6 +1435,89 @@ app.get('/api/debug/files', (req, res) => {
     res.status(500).json({ error: 'Failed to list files' });
   }
 });
+/* =======================================================================
+   Sidecar (JsonOdds) — Fetch scores (combined) on demand
+   GET /api/sidecar/fetch-scores-combined?week=4&sports=ncaaf,nfl&from=YYYY-MM-DDTHH:mm&to=YYYY-MM-DDTHH:mm
+   - Streams a download "scores_week_<week>.json" in your exact schema:
+     [{ date, team1, score1, team2, score2 }, ...]
+   - Uses base games_week_<week> (combined if present) to normalize names.
+   - Does NOT write to disk; this is fetch-only.
+   ======================================================================= */
+const fs_sc = require('fs');
+const path_sc = require('path');
+
+const DATA_DIR_SC = process.env.DATA_DIR || '/mnt/data';
+
+function readJsonSafe_sc(p){ try{ return JSON.parse(fs_sc.readFileSync(p,'utf8')); }catch{ return null; }}
+
+// Alias map for name normalization (optional but helpful)
+const ALIAS_MAP_SC = readJsonSafe_sc(path_sc.resolve(__dirname, 'sidecar/alias-map.json')) || {};
+function aliasLookup_sc(s){ if(!s) return ''; const lower=String(s).toLowerCase(); const hit=Object.keys(ALIAS_MAP_SC).find(k=>k.toLowerCase()===lower); return hit? ALIAS_MAP_SC[hit] : s; }
+function norm_sc(s){ return String(s||'').replace(/&/g,'and').replace(/[^a-z0-9 ]+/gi,' ').replace(/\s+/g,' ').trim().toLowerCase(); }
+function keyHA_sc(home,away){ return norm_sc(aliasLookup_sc(home))+'__'+norm_sc(aliasLookup_sc(away)); }
+function within_sc(ct,fromIso,toIso){ if(!fromIso && !toIso) return true; const d=new Date(String(ct).replace(' ','T')); if(isNaN(+d)) return true; if(fromIso && d<new Date(fromIso)) return false; if(toIso && d>new Date(toIso)) return false; return true; }
+
+function getJsonOddsConfig_sc(){
+  const cfg = readJsonSafe_sc(path_sc.resolve(__dirname,'sidecar/sidecar.config.json')) || {};
+  const apiKey = (process.env.JSONODDS_API_KEY || process.env.JSON_ODDS_API_KEY || cfg.apiKey || '').trim();
+  const baseUrl = (process.env.JSONODDS_BASEURL || cfg.baseUrl || 'https://jsonodds.com/api').replace(/\/+$/,'');
+  if(!apiKey) throw new Error('Missing JsonOdds API key (set JSONODDS_API_KEY or sidecar/sidecar.config.json.apiKey)');
+  return { apiKey, baseUrl };
+}
+
+app.get('/api/sidecar/fetch-scores-combined', async (req, res) => {
+  try {
+    const week   = Number(req.query.week) || 1;
+    const sports = String(req.query.sports || 'ncaaf,nfl').toLowerCase().split(',').map(s=>s.trim()).filter(Boolean);
+    const fromQ  = req.query.from || null;
+    const toQ    = req.query.to   || null;
+
+    // Pick base games file (prefer combined if present)
+    let basePath = path_sc.resolve(DATA_DIR_SC, `games_week_${week}_combined.json`);
+    if (!fs_sc.existsSync(basePath)) basePath = path_sc.resolve(DATA_DIR_SC, `games_week_${week}.json`);
+    const baseGames = readJsonSafe_sc(basePath);
+    if (!Array.isArray(baseGames)) return res.status(400).json({ error: `Base games file not found or invalid: ${basePath}` });
+
+    const { apiKey, baseUrl } = getJsonOddsConfig_sc();
+
+    // Fetch final results per sport and build a results map keyed by normalized home__away
+    const resMap = new Map();
+    for (const sport of sports) {
+      const url = `${baseUrl}/results/${encodeURIComponent(sport)}?final=true&oddType=Game`;
+      const r = await fetch(url, { headers: { 'x-api-key': apiKey } });
+      if (!r.ok) throw new Error(`JsonOdds /results ${sport}: ${r.status} ${(await r.text().catch(()=>r.statusText))}`);
+      const data = await r.json();
+      const rows = Array.isArray(data) ? data : (data.results || data.matches || []);
+      for (const x of rows) {
+        const home = x.HomeTeam || x.homeTeam || x.Home || x.home;
+        const away = x.AwayTeam || x.awayTeam || x.Away || x.away;
+        const hs = Number(x.HomeScore ?? x.homeScore ?? x.Home ?? 0);
+        const as = Number(x.AwayScore ?? x.awayScore ?? x.Away ?? 0);
+        if (home && away) resMap.set(keyHA_sc(home, away), { hs, as });
+      }
+    }
+
+    // Align to your base games (team1=Home, team2=Away), filter window, sort
+    const out = [];
+    const missing = [];
+    for (const g of baseGames) {
+      if (!within_sc(g.date, fromQ, toQ)) continue;
+      const hit = resMap.get(keyHA_sc(g.team1, g.team2));
+      if (!hit) { missing.push({ team1:g.team1, team2:g.team2, date:g.date }); continue; }
+      out.push({ date: g.date, team1: g.team1, score1: hit.hs, team2: g.team2, score2: hit.as });
+    }
+    out.sort((a,b)=> a.date.localeCompare(b.date) || (a.team1+a.team2).localeCompare(b.team1+b.team2));
+
+    if (missing.length) console.warn(`[fetch-scores-combined] Unmatched: ${missing.length} (showing up to 5)`, missing.slice(0,5));
+
+    res.setHeader('Content-Disposition', `attachment; filename="scores_week_${week}.json"`);
+    res.type('application/json').send(JSON.stringify(out, null, 2));
+  } catch (e) {
+    console.error('GET /api/sidecar/fetch-scores-combined error:', e);
+    res.status(500).json({ error: e.message || 'Failed to fetch scores' });
+  }
+});
+/* ======================= end fetch-scores-combined ======================= */
 
 // ---------- Start server ----------
 const PORT = process.env.PORT || 5001;
