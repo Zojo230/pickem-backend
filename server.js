@@ -1635,6 +1635,69 @@ app.get('/api/sidecar/spreads', async (req, res) => {
     res.status(500).json({ error: e.message || 'Failed to fetch spreads' });
   }
 });
+/* =======================================================================
+   Sidecar (JsonOdds) — fetch spreads (combined), AWAY-FIRST output
+   GET /api/sidecar/spreads-combined?week=5&sports=ncaaf,nfl
+       [&from=YYYY-MM-DDTHH:mm][&to=YYYY-MM-DDTHH:mm][&save=true]
+   - Streams "games_week_<week>.json"
+   - Output schema (AWAY-FIRST):
+     [{ date:"YYYY-MM-DD hh:mm AM/PM", team1(away), spread1(away), team2(home), spread2(home) }, ...]
+   ======================================================================= */
+app.get('/api/sidecar/spreads-combined', async (req, res) => {
+  try {
+    const week   = Number(req.query.week) || 1;
+    const sports = String(req.query.sports || 'ncaaf,nfl').toLowerCase().split(',').map(s=>s.trim()).filter(Boolean);
+    const fromQ  = req.query.from || null;
+    const toQ    = req.query.to   || null;
+    const save   = String(req.query.save || 'false').toLowerCase() === 'true';
+
+    // Reuse helpers/config already defined in the Sidecar block you pasted earlier:
+    // - getJsonOddsConfig_SIDE()
+    // - fmtCT_SIDE()
+    // - withinWindow_SIDE()
+    // - pickBestOdds_SIDE(), pickNum_SIDE(), AWAY_KEYS_SIDE, HOME_KEYS_SIDE
+    const { apiKey, baseUrl } = getJsonOddsConfig_SIDE();
+
+    const out = [];
+    for (const sport of sports) {
+      const url = `${baseUrl}/odds/${encodeURIComponent(sport)}?oddType=Game`;
+      const r = await fetch(url, { headers: { 'x-api-key': apiKey } });
+      if (!r.ok) throw new Error(`JsonOdds /odds ${sport}: ${r.status} ${(await r.text().catch(()=>r.statusText))}`);
+
+      const data = await r.json();
+      const matches = Array.isArray(data) ? data : (data.matches || []);
+      for (const m of matches) {
+        const best = pickBestOdds_SIDE(m.Odds || m.odds || m.Lines || []);
+        if (!best) continue;
+
+        const date  = fmtCT_SIDE(m.MatchTime || m.DateTime || m.date);
+        const away  = m.AwayTeam || m.awayTeam || m.Away || m.away || '';
+        const home  = m.HomeTeam || m.homeTeam || m.Home || m.home || '';
+        const sprA  = pickNum_SIDE(best, AWAY_KEYS_SIDE);
+        const sprH  = pickNum_SIDE(best, HOME_KEYS_SIDE);
+        if (sprA == null || sprH == null) continue;
+        if (!withinWindow_SIDE(date, fromQ, toQ)) continue;
+
+        // AWAY-FIRST
+        out.push({ date, team1: away, spread1: sprA, team2: home, spread2: sprH });
+      }
+    }
+
+    out.sort((a,b)=> a.date.localeCompare(b.date) || (a.team1+a.team2).localeCompare(b.team1+b.team2));
+
+    if (save) {
+      const p = path_side.resolve(DATA_DIR_SIDE, `games_week_${week}.json`);
+      fs_side.writeFileSync(p, JSON.stringify(out, null, 2));
+      console.log(`[spreads-combined] saved -> ${p} (rows=${out.length})`);
+    }
+
+    res.setHeader('Content-Disposition', `attachment; filename="games_week_${week}.json"`);
+    return res.type('application/json').send(JSON.stringify(out, null, 2));
+  } catch (e) {
+    console.error('GET /api/sidecar/spreads-combined error:', e);
+    res.status(500).json({ error: e.message || 'Failed to fetch combined spreads' });
+  }
+});
 
 // ---------- Start server ----------
 const PORT = process.env.PORT || 5001;
