@@ -1436,20 +1436,20 @@ app.get('/api/debug/files', (req, res) => {
   }
 });
 /* =======================================================================
-   Simple Sidecar (JsonOdds) — CST-only, client download only (SAFE FETCH)
+   Simple Sidecar (JsonOdds) — CST-only, robust date parsing + safe fetch
    Endpoints:
      GET /api/sidecar/download-spreads?week=5&from=2025-09-25&to=2025-09-29
-     GET /api/sidecar/download-scores?week=5&from=2025-09-25&to=2025-09-29
+     GET /api/sidecar/download-scores?week=5&from=2025-09-25&to=2025-09-29[&nofilter=true]
    Notes:
-     - Uses safeFetch: global fetch if present, otherwise dynamic import('node-fetch').
-     - Fixed CST window (UTC-06:00): start=2:00 PM, end=11:59 PM.
-     - No server writes; returns a download only.
-     - team1=Home, team2=Away.
+     - safeFetch works with/without global fetch (falls back to node-fetch v3).
+     - Robust date parser handles ISO and common non-ISO strings.
+     - Fixed CST window: start day 2:00 PM, end day 11:59 PM.
+     - No server writes; returns a download only. team1=Home, team2=Away.
    ======================================================================= */
 
 const safeFetch = async (url, opts) => {
   if (typeof globalThis.fetch === 'function') return globalThis.fetch(url, opts);
-  const { default: f } = await import('node-fetch'); // works with node-fetch v3
+  const { default: f } = await import('node-fetch'); // node-fetch v3 dynamic import
   return f(url, opts);
 };
 
@@ -1462,18 +1462,20 @@ function getJsonOddsConfig_S() {
 
 // ---- fixed CST helpers (no DST) ----
 const MS_S = 1000, H_S = 60 * 60 * MS_S, CST_OFFSET_MS = 6 * H_S;
+
 function startEndToUtcRangeCST_S(fromYYYYMMDD, toYYYYMMDD) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fromYYYYMMDD) || !/^\d{4}-\d{2}-\d{2}$/.test(toYYYYMMDD))
     throw new Error('from/to must be YYYY-MM-DD');
   const [y1,m1,d1] = fromYYYYMMDD.split('-').map(Number);
   const [y2,m2,d2] = toYYYYMMDD.split('-').map(Number);
-  const startCst = new Date(Date.UTC(y1, m1-1, d1, 14, 0, 0));   // 14:00 CST
-  const endCst   = new Date(Date.UTC(y2, m2-1, d2, 23, 59, 59)); // 23:59:59 CST
+  const startCst = new Date(Date.UTC(y1, m1-1, d1, 14, 0, 0));   // Thu 2:00 PM CST
+  const endCst   = new Date(Date.UTC(y2, m2-1, d2, 23, 59, 59)); // Mon 11:59:59 CST
   return { startUtc: new Date(startCst.getTime() + CST_OFFSET_MS),
            endUtc:   new Date(endCst.getTime()   + CST_OFFSET_MS) };
 }
-function isoToCSTString_S(isoLike) {
-  const dUtc = new Date(isoLike);
+
+function isoToCSTString_S(isoLikeUtc) {
+  const dUtc = new Date(isoLikeUtc);
   const dCst = new Date(dUtc.getTime() - CST_OFFSET_MS);
   const yyyy = dCst.getUTCFullYear();
   const mm   = String(dCst.getUTCMonth()+1).padStart(2,'0');
@@ -1484,13 +1486,54 @@ function isoToCSTString_S(isoLike) {
   hr = hr % 12; if (hr === 0) hr = 12;
   return `${yyyy}-${mm}-${dd} ${hr}:${min} ${ampm}`;
 }
+
+// ---------- tolerant date parsing ----------
+function parseUTCish_S(val) {
+  if (!val) return null;
+  const raw = String(val).trim();
+
+  // 1) ISO or browser-parseable
+  let d = new Date(raw);
+  if (!Number.isNaN(d.getTime())) return d;
+
+  // 2) YYYY-MM-DD hh:mm[:ss] [AM|PM]
+  let m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i.exec(raw);
+  if (m) {
+    let [, Y, M, D, h, mi, s, ampm] = m;
+    h = Number(h) % 12;
+    if (ampm && ampm.toUpperCase() === 'PM') h += 12;
+    return new Date(Date.UTC(+Y, +M-1, +D, h, +mi, s ? +s : 0));
+  }
+
+  // 3) MM/DD/YYYY hh:mm[:ss] [AM|PM]
+  m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i.exec(raw);
+  if (m) {
+    let [, mo, da, Y, h, mi, s, ampm] = m;
+    h = Number(h) % 12;
+    if (ampm && ampm.toUpperCase() === 'PM') h += 12;
+    return new Date(Date.UTC(+Y, +mo-1, +da, h, +mi, s ? +s : 0));
+  }
+
+  // 4) Fallback: YYYY-MM-DD only → noon UTC
+  m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  if (m) return new Date(Date.UTC(+m[1], +m[2]-1, +m[3], 12, 0, 0));
+
+  return null;
+}
+
 const pick_S = (o, ...ks) => { for (const k of ks) if (o && o[k] != null) return o[k]; };
-const pickKickoff_S = o => pick_S(o,'StartsAt','StartTime','MatchTimeUTC','MatchTime','Kickoff','GameTime','DateTime','commenceTime','EventDateTime','EventDate','Date','time');
+const pickKickoff_S = o => pick_S(o,'MatchTimeUTC','StartsAt','DateTime','MatchTime','Kickoff','EventDateTime','commenceTime','EventDate','Date','time');
 const home_S = o => pick_S(o,'HomeTeam','homeTeam','Home','HomeName','home','HomeTeamName');
 const away_S = o => pick_S(o,'AwayTeam','awayTeam','Away','AwayName','away','AwayTeamName');
 const hSpread_S = o => pick_S(o,'HomeSpread','SpreadHome','handicapHome','pointHandicapHome','PointSpreadHome');
 const aSpread_S = o => pick_S(o,'AwaySpread','SpreadAway','handicapAway','pointHandicapAway','PointSpreadAway');
-const within_S = (raw,start,end) => { const k = pickKickoff_S(raw); if(!k) return false; const dt = new Date(k); return dt>=start && dt<=end; };
+
+function within_S(raw,start,end) {
+  const k = pickKickoff_S(raw);
+  const t = parseUTCish_S(k);
+  if (!t) return false;
+  return t >= start && t <= end;
+}
 
 async function getOdds_S(sports) {
   const { apiKey, baseUrl } = getJsonOddsConfig_S();
@@ -1505,6 +1548,7 @@ async function getOdds_S(sports) {
   }
   return out;
 }
+
 async function getResults_S(sports) {
   const { apiKey, baseUrl } = getJsonOddsConfig_S();
   const out = [];
@@ -1553,17 +1597,21 @@ app.get('/api/sidecar/download-scores', async (req, res) => {
     const week = Number(req.query.week) || 1;
     const from = String(req.query.from || '').trim();
     const to   = String(req.query.to   || '').trim();
+    const nofilter = String(req.query.nofilter||'false').toLowerCase()==='true';
     const { startUtc, endUtc } = startEndToUtcRangeCST_S(from, to);
     const sports = ['ncaaf','nfl'];
 
     const results = await getResults_S(sports);
     const out = [];
     for (const { raw } of results) {
-      if (!within_S(raw, startUtc, endUtc)) continue;
       const home = home_S(raw), away = away_S(raw); if (!home || !away) continue;
       const hs = Number(pick_S(raw,'HomeScore','homeScore','Home','home','ScoreHome'));
       const as = Number(pick_S(raw,'AwayScore','awayScore','Away','away','ScoreAway'));
       if (!Number.isFinite(hs) || !Number.isFinite(as)) continue;
+
+      if (!nofilter) {
+        if (!within_S(raw, startUtc, endUtc)) continue;
+      }
       out.push({ date: isoToCSTString_S(pickKickoff_S(raw)), team1: home, score1: hs, team2: away, score2: as });
     }
     out.sort((x,y)=> x.date.localeCompare(y.date) || (x.team1+x.team2).localeCompare(y.team1+y.team2));
