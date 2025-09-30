@@ -1436,52 +1436,43 @@ app.get('/api/debug/files', (req, res) => {
   }
 });
 /* =======================================================================
-   Simple Sidecar (JsonOdds) — CST-only, client-download only
+   Simple Sidecar (JsonOdds) — CST-only, client download only (SAFE FETCH)
    Endpoints:
      GET /api/sidecar/download-spreads?week=5&from=2025-09-25&to=2025-09-29
      GET /api/sidecar/download-scores?week=5&from=2025-09-25&to=2025-09-29
-   Behavior:
-     - Combines NCAAF + NFL automatically.
-     - Interprets the date window in **Central Standard Time (UTC-06:00)** only.
-       * Start boundary = selected start day at 14:00 (Thu 2:00 PM CST)
-       * End   boundary = selected end   day at 23:59 (Mon 11:59 PM CST)
-     - Returns a downloaded JSON file; DOES NOT write to /data.
-     - Output schemas:
-       * Spreads: [{ date, team1, spread1, team2, spread2 }]
-       * Scores : [{ date, team1, score1, team2, score2 }]
-     - team1 = Home, team2 = Away (consistent with your app)
+   Notes:
+     - Uses safeFetch: global fetch if present, otherwise dynamic import('node-fetch').
+     - Fixed CST window (UTC-06:00): start=2:00 PM, end=11:59 PM.
+     - No server writes; returns a download only.
+     - team1=Home, team2=Away.
    ======================================================================= */
 
-const fetch = require('node-fetch'); // already present in your project typically
+const safeFetch = async (url, opts) => {
+  if (typeof globalThis.fetch === 'function') return globalThis.fetch(url, opts);
+  const { default: f } = await import('node-fetch'); // works with node-fetch v3
+  return f(url, opts);
+};
 
-// --- Config for JsonOdds ---
-function getJsonOddsConfig() {
+function getJsonOddsConfig_S() {
   const apiKey = process.env.JSONODDS_API_KEY || process.env.JSON_ODDS_KEY || '';
   const baseUrl = process.env.JSONODDS_BASE_URL || 'https://jsonodds.com/api';
   if (!apiKey) throw new Error('Missing JSONODDS_API_KEY');
   return { apiKey, baseUrl };
 }
 
-// --- CST helpers (fixed CST = UTC-06:00, per Coach’s request) ---
-const MS = 1000;
-const H  = 60 * 60 * MS;
-const CST_OFFSET_MS = 6 * H; // fixed CST (no DST)
-
-function startEndToUtcRangeCSTonly(fromYYYYMMDD, toYYYYMMDD) {
-  // Start = 14:00 CST (Thu 2pm), End = 23:59 CST (Mon 11:59pm)
-  // Convert CST to UTC by ADDING 6 hours (fixed).
+// ---- fixed CST helpers (no DST) ----
+const MS_S = 1000, H_S = 60 * 60 * MS_S, CST_OFFSET_MS = 6 * H_S;
+function startEndToUtcRangeCST_S(fromYYYYMMDD, toYYYYMMDD) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fromYYYYMMDD) || !/^\d{4}-\d{2}-\d{2}$/.test(toYYYYMMDD))
+    throw new Error('from/to must be YYYY-MM-DD');
   const [y1,m1,d1] = fromYYYYMMDD.split('-').map(Number);
   const [y2,m2,d2] = toYYYYMMDD.split('-').map(Number);
-  // JS Date uses local TZ if not specified; force UTC base:
-  const startCst = new Date(Date.UTC(y1, m1-1, d1, 14, 0, 0));     // 14:00 CST
-  const endCst   = new Date(Date.UTC(y2, m2-1, d2, 23, 59, 59));   // 23:59:59 CST
-  const startUtc = new Date(startCst.getTime() + CST_OFFSET_MS);
-  const endUtc   = new Date(endCst.getTime()   + CST_OFFSET_MS);
-  return { startUtc, endUtc };
+  const startCst = new Date(Date.UTC(y1, m1-1, d1, 14, 0, 0));   // 14:00 CST
+  const endCst   = new Date(Date.UTC(y2, m2-1, d2, 23, 59, 59)); // 23:59:59 CST
+  return { startUtc: new Date(startCst.getTime() + CST_OFFSET_MS),
+           endUtc:   new Date(endCst.getTime()   + CST_OFFSET_MS) };
 }
-
-function isoToCSTString(isoLike) {
-  // Take any ISO-ish input (usually UTC), shift back 6h, format "YYYY-MM-DD hh:mm AM/PM"
+function isoToCSTString_S(isoLike) {
   const dUtc = new Date(isoLike);
   const dCst = new Date(dUtc.getTime() - CST_OFFSET_MS);
   const yyyy = dCst.getUTCFullYear();
@@ -1491,41 +1482,35 @@ function isoToCSTString(isoLike) {
   const min  = String(dCst.getUTCMinutes()).padStart(2,'0');
   const ampm = hr >= 12 ? 'PM' : 'AM';
   hr = hr % 12; if (hr === 0) hr = 12;
-  const hh = String(hr).padStart(1,'0');
-  return `${yyyy}-${mm}-${dd} ${hh}:${min} ${ampm}`;
+  return `${yyyy}-${mm}-${dd} ${hr}:${min} ${ampm}`;
 }
+const pick_S = (o, ...ks) => { for (const k of ks) if (o && o[k] != null) return o[k]; };
+const pickKickoff_S = o => pick_S(o,'StartsAt','StartTime','MatchTimeUTC','MatchTime','Kickoff','GameTime','DateTime','commenceTime','EventDateTime','EventDate','Date','time');
+const home_S = o => pick_S(o,'HomeTeam','homeTeam','Home','HomeName','home','HomeTeamName');
+const away_S = o => pick_S(o,'AwayTeam','awayTeam','Away','AwayName','away','AwayTeamName');
+const hSpread_S = o => pick_S(o,'HomeSpread','SpreadHome','handicapHome','pointHandicapHome','PointSpreadHome');
+const aSpread_S = o => pick_S(o,'AwaySpread','SpreadAway','handicapAway','pointHandicapAway','PointSpreadAway');
+const within_S = (raw,start,end) => { const k = pickKickoff_S(raw); if(!k) return false; const dt = new Date(k); return dt>=start && dt<=end; };
 
-// Generic date pick from JsonOdds objects (be tolerant to field names)
-function pickKickoff(obj) {
-  return (
-    obj.StartsAt || obj.StartTime || obj.MatchTimeUTC || obj.MatchTime ||
-    obj.Kickoff || obj.GameTime || obj.DateTime || obj.commenceTime ||
-    obj.EventDateTime || obj.EventDate || obj.Date || obj.time
-  );
+async function getOdds_S(sports) {
+  const { apiKey, baseUrl } = getJsonOddsConfig_S();
+  const out = [];
+  for (const sport of sports) {
+    const url = `${baseUrl}/odds/${encodeURIComponent(sport)}?oddType=Game`;
+    const r = await safeFetch(url, { headers: { 'x-api-key': apiKey } });
+    if (!r.ok) throw new Error(`JsonOdds odds ${sport} ${r.status}`);
+    const data = await r.json();
+    const rows = Array.isArray(data) ? data : (data.odds || data.events || []);
+    for (const x of rows) out.push({ sport, raw: x });
+  }
+  return out;
 }
-
-// Team name helpers (be tolerant)
-function pickHome(obj) {
-  return obj.HomeTeam || obj.homeTeam || obj.Home || obj.HomeName || obj.home || obj.HomeTeamName;
-}
-function pickAway(obj) {
-  return obj.AwayTeam || obj.awayTeam || obj.Away || obj.AwayName || obj.away || obj.AwayTeamName;
-}
-function pickHomeSpread(obj) {
-  // typical fields from odds endpoints
-  return obj.HomeSpread ?? obj.SpreadHome ?? obj.handicapHome ?? obj.pointHandicapHome ?? obj.PointSpreadHome;
-}
-function pickAwaySpread(obj) {
-  return obj.AwaySpread ?? obj.SpreadAway ?? obj.handicapAway ?? obj.pointHandicapAway ?? obj.PointSpreadAway;
-}
-
-// --- Core fetchers ---
-async function getResultsForSports(sports) {
-  const { apiKey, baseUrl } = getJsonOddsConfig();
+async function getResults_S(sports) {
+  const { apiKey, baseUrl } = getJsonOddsConfig_S();
   const out = [];
   for (const sport of sports) {
     const url = `${baseUrl}/results/${encodeURIComponent(sport)}?final=true&oddType=Game`;
-    const r = await fetch(url, { headers: { 'x-api-key': apiKey } });
+    const r = await safeFetch(url, { headers: { 'x-api-key': apiKey } });
     if (!r.ok) throw new Error(`JsonOdds results ${sport} ${r.status}`);
     const data = await r.json();
     const rows = Array.isArray(data) ? data : (data.results || data.matches || []);
@@ -1534,68 +1519,27 @@ async function getResultsForSports(sports) {
   return out;
 }
 
-async function getOddsForSports(sports) {
-  const { apiKey, baseUrl } = getJsonOddsConfig();
-  const out = [];
-  for (const sport of sports) {
-    const url = `${baseUrl}/odds/${encodeURIComponent(sport)}?oddType=Game`;
-    const r = await fetch(url, { headers: { 'x-api-key': apiKey } });
-    if (!r.ok) throw new Error(`JsonOdds odds ${sport} ${r.status}`);
-    const data = await r.json();
-    const rows = Array.isArray(data) ? data : (data.odds || data.events || []);
-    for (const x of rows) out.push({ sport, raw: x });
-  }
-  return out;
-}
-
-// Date-window filter (UTC compare using our fixed CST boundaries)
-function withinWindowByUtc(rawObj, startUtc, endUtc) {
-  const k = pickKickoff(rawObj);
-  if (!k) return false;
-  const dt = new Date(k); // assume ISO-ish (UTC or with Z)
-  return dt >= startUtc && dt <= endUtc;
-}
-
-// ====== ROUTES ======
-
+// -------------------- ROUTES --------------------
 app.get('/api/sidecar/download-spreads', async (req, res) => {
   try {
     const week = Number(req.query.week) || 1;
-    const from = String(req.query.from || '').trim(); // YYYY-MM-DD
-    const to   = String(req.query.to   || '').trim(); // YYYY-MM-DD
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to))
-      return res.status(400).json({ error: 'from/to must be YYYY-MM-DD' });
+    const from = String(req.query.from || '').trim();
+    const to   = String(req.query.to   || '').trim();
+    const { startUtc, endUtc } = startEndToUtcRangeCST_S(from, to);
+    const sports = ['ncaaf','nfl'];
 
-    const { startUtc, endUtc } = startEndToUtcRangeCSTonly(from, to);
-    const sports = ['ncaaf', 'nfl'];
-
-    const odds = await getOddsForSports(sports);
+    const odds = await getOdds_S(sports);
     const out = [];
-
     for (const { raw } of odds) {
-      if (!withinWindowByUtc(raw, startUtc, endUtc)) continue;
-
-      const home = pickHome(raw);
-      const away = pickAway(raw);
-      if (!home || !away) continue;
-
-      // spreads: if only one side is present, make the other the negative
-      let h = Number(pickHomeSpread(raw));
-      let a = Number(pickAwaySpread(raw));
+      if (!within_S(raw, startUtc, endUtc)) continue;
+      const home = home_S(raw), away = away_S(raw); if (!home || !away) continue;
+      let h = Number(hSpread_S(raw)), a = Number(aSpread_S(raw));
       if (Number.isFinite(h) && !Number.isFinite(a)) a = -h;
       if (!Number.isFinite(h) && Number.isFinite(a)) h = -a;
       if (!Number.isFinite(h) || !Number.isFinite(a)) continue;
-
-      const kickoff = pickKickoff(raw);
-      out.push({
-        date: isoToCSTString(kickoff), // CST string
-        team1: home,  spread1: h,
-        team2: away,  spread2: a
-      });
+      out.push({ date: isoToCSTString_S(pickKickoff_S(raw)), team1: home, spread1: h, team2: away, spread2: a });
     }
-
-    out.sort((a,b)=> a.date.localeCompare(b.date) || (a.team1+a.team2).localeCompare(b.team1+b.team2));
-
+    out.sort((x,y)=> x.date.localeCompare(y.date) || (x.team1+x.team2).localeCompare(y.team1+y.team2));
     res.setHeader('Content-Disposition', `attachment; filename="games_week_${week}.json"`);
     return res.type('application/json').send(JSON.stringify(out, null, 2));
   } catch (e) {
@@ -1607,38 +1551,22 @@ app.get('/api/sidecar/download-spreads', async (req, res) => {
 app.get('/api/sidecar/download-scores', async (req, res) => {
   try {
     const week = Number(req.query.week) || 1;
-    const from = String(req.query.from || '').trim(); // YYYY-MM-DD
-    const to   = String(req.query.to   || '').trim(); // YYYY-MM-DD
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to))
-      return res.status(400).json({ error: 'from/to must be YYYY-MM-DD' });
+    const from = String(req.query.from || '').trim();
+    const to   = String(req.query.to   || '').trim();
+    const { startUtc, endUtc } = startEndToUtcRangeCST_S(from, to);
+    const sports = ['ncaaf','nfl'];
 
-    const { startUtc, endUtc } = startEndToUtcRangeCSTonly(from, to);
-    const sports = ['ncaaf', 'nfl'];
-
-    const results = await getResultsForSports(sports);
+    const results = await getResults_S(sports);
     const out = [];
-
     for (const { raw } of results) {
-      if (!withinWindowByUtc(raw, startUtc, endUtc)) continue;
-
-      const home = pickHome(raw);
-      const away = pickAway(raw);
-      if (!home || !away) continue;
-
-      const hs = Number(raw.HomeScore ?? raw.homeScore ?? raw.Home ?? raw.home ?? raw.ScoreHome);
-      const as = Number(raw.AwayScore ?? raw.awayScore ?? raw.Away ?? raw.away ?? raw.ScoreAway);
+      if (!within_S(raw, startUtc, endUtc)) continue;
+      const home = home_S(raw), away = away_S(raw); if (!home || !away) continue;
+      const hs = Number(pick_S(raw,'HomeScore','homeScore','Home','home','ScoreHome'));
+      const as = Number(pick_S(raw,'AwayScore','awayScore','Away','away','ScoreAway'));
       if (!Number.isFinite(hs) || !Number.isFinite(as)) continue;
-
-      const kickoff = pickKickoff(raw);
-      out.push({
-        date: isoToCSTString(kickoff), // CST string
-        team1: home,  score1: hs,
-        team2: away,  score2: as
-      });
+      out.push({ date: isoToCSTString_S(pickKickoff_S(raw)), team1: home, score1: hs, team2: away, score2: as });
     }
-
-    out.sort((a,b)=> a.date.localeCompare(b.date) || (a.team1+a.team2).localeCompare(b.team1+b.team2));
-
+    out.sort((x,y)=> x.date.localeCompare(y.date) || (x.team1+x.team2).localeCompare(y.team1+y.team2));
     res.setHeader('Content-Disposition', `attachment; filename="scores_week_${week}.json"`);
     return res.type('application/json').send(JSON.stringify(out, null, 2));
   } catch (e) {
