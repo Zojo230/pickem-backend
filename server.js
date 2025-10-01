@@ -137,6 +137,43 @@ function requireValidPlayer(req, res, next) {
   return next();
 }
 // === END STEP 1 ===========================================================
+// === STEP 3: Canonical team name normalization ============================
+// Strips parenthetical spreads like "(-3.5)" and normalizes whitespace/case.
+// Also maps common nicknames/short forms to a single canonical key.
+const TEAM_ALIAS = new Map([
+  // ----- SEC / common aliases -----
+  ['ole miss', 'mississippi'],
+  ['miss st', 'mississippi state'],
+  ['florida st', 'florida state'],
+  ['texas a&m', 'texas am'], // normalize ampersand
+  ['louisiana-lafayette', 'ull'],
+  ['louisiana-monroe', 'ulmonroe'],
+  // ----- Pac-12 / national -----
+  ['usc', 'southern california'],
+  ['ucla', 'ucla'],
+  ['byu', 'brigham young'],
+  // ----- NFL common short forms -----
+  ['ny giants', 'new york giants'],
+  ['ny jets', 'new york jets'],
+  ['kc chiefs', 'kansas city chiefs'],
+  ['det lions', 'detroit lions'],
+  // Add/adjust as you see issues
+]);
+
+function stripParenSpreads(name) {
+  // remove things like "(-3.5)" anywhere in the string
+  return String(name ?? '')
+    .replace(/\([^)]*\)/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function canonicalName(raw) {
+  const base = stripParenSpreads(raw).toLowerCase();
+  // If the alias map has this base, return its mapped value; else use the base itself
+  return TEAM_ALIAS.get(base) || base;
+}
+// ========================================================================
 
 // ---------- Directories ----------
 const dataDirRaw   = (process.env.DATA_DIR   || './data').replace(/\r?\n/g, '').trim();
@@ -671,12 +708,12 @@ function calculateTotalWinners(week) {
   const declaredWinners = [];
 
   for (const game of games) {
-    const g1 = normalizeName(game.team1);
-    const g2 = normalizeName(game.team2);
+    const g1 = canonicalName(game.team1);
+    const g2 = canonicalName(game.team2);
 
     const match = scores.find(s => {
-      const s1 = normalizeName(s.team1);
-      const s2 = normalizeName(s.team2);
+      const s1 = canonicalName(s.team1);
+      const s2 = canonicalName(s.team2);
       return (s1 === g1 && s2 === g2) || (s1 === g2 && s2 === g1);
     });
 
@@ -719,13 +756,15 @@ function calculateWinnersFromList(week) {
   }
 
   const picksData   = JSON.parse(fs.readFileSync(picksFile, 'utf8'));
-  const winnersList = JSON.parse(fs.readFileSync(winnersFile, 'utf8'));
+  // Canonical compare: normalize winners & picks before matching
+  const winnersSet = new Set((winnersList || []).map(w => canonicalName(w)));
 
   const results = picksData.map(player => {
-    const correct = (player.picks || [])
-      .map(p => (p.pick || '').trim())
-      .filter(pick => winnersList.includes(pick));
-    return { player: player.player, correct, total: correct.length };
+    
+      const correct = (player.picks || [])
+        .map(p => canonicalName((p.pick || '').trim()))
+        .filter(cPick => winnersSet.has(cPick));
+      return { player: player.player, correct, total: correct.length };
   });
 
   fs.writeFileSync(outputFile, JSON.stringify(results, null, 2));
