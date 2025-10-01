@@ -1,0 +1,24 @@
+{
+  "nfl": {
+    "LA Rams": "Los Angeles Rams",
+    "NY Jets": "New York Jets",
+    "Washington": "Washington Commanders",
+    "TB Bucs": "Tampa Bay Buccaneers"
+  },
+  "ncaaf": {
+    "San Jose State": "San José State Spartans",
+    "Hawaii": "Hawai'i Rainbow Warriors",
+    "Ole Miss": "Ole Miss Rebels",
+    "Miami (OH)": "Miami (OH) RedHawks",
+    "Miami (FL)": "Miami Hurricanes",
+    "UConn": "UConn Huskies",
+    "NIU": "Northern Illinois Huskies",
+    "UCF": "UCF Knights",
+    "UTSA": "UTSA Roadrunners",
+    "UNLV": "UNLV Rebels",
+    "La Tech": "Louisiana Tech Bulldogs",
+    "App St": "Appalachian State Mountaineers",
+    "Southern Miss": "Southern Miss Golden Eagles",
+    "Texas A and M": "Texas A&M Aggies"
+  }
+}

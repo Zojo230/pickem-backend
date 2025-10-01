@@ -1,0 +1,30 @@
+[
+  {
+    "date": "09/07/2025 12:00 PM",
+    "team1": "NY Jets",
+    "score1": 17,
+    "team2": "San Francisco 49ers",
+    "score2": 27
+  },
+  {
+    "date": "09/07/2025 12:00 PM",
+    "team1": "New York Jets",
+    "score1": 17,
+    "team2": "San Francisco 49ers",
+    "score2": 27
+  },
+  {
+    "date": "09/07/2025 3:25 PM",
+    "team1": "LA Rams",
+    "score1": 21,
+    "team2": "New York Giants",
+    "score2": 24
+  },
+  {
+    "date": "09/07/2025 3:25 PM",
+    "team1": "Los Angeles Rams",
+    "score1": 21,
+    "team2": "New York Giants",
+    "score2": 24
+  }
+]

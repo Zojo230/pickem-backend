@@ -1,23 +1,443 @@
 [
   {
+    "date": "2025-08-28 4:30 PM",
+    "team1": "Boise State Broncos",
+    "score1": 7,
+    "team2": "South Florida Bulls",
+    "score2": 34
+  },
+  {
+    "date": "2025-08-28 5:00 PM",
+    "team1": "Ohio Bobcats",
+    "score1": 31,
+    "team2": "Rutgers Scarlet Knights",
+    "score2": 34
+  },
+  {
     "date": "2025-08-28 6:00 PM",
-    "team1": "Akron",
-    "score1": 21,
-    "team2": "Kent State",
+    "team1": "East Carolina Pirates",
+    "score1": 17,
+    "team2": "NC State Wolfpack",
+    "score2": 24
+  },
+  {
+    "date": "2025-08-28 6:00 PM",
+    "team1": "Jacksonville State Gamecocks",
+    "score1": 10,
+    "team2": "UCF Knights",
     "score2": 17
   },
   {
     "date": "2025-08-28 6:00 PM",
-    "team1": "Troy",
+    "team1": "Wyoming Cowboys",
+    "score1": 10,
+    "team2": "Akron Zips",
+    "score2": 0
+  },
+  {
+    "date": "2025-08-28 6:30 PM",
+    "team1": "Elon Phoenix",
+    "score1": 17,
+    "team2": "Duke Blue Devils",
+    "score2": 45
+  },
+  {
+    "date": "2025-08-28 6:30 PM",
+    "team1": "UT Martin Skyhawks",
+    "score1": 7,
+    "team2": "Oklahoma State Cowboys",
+    "score2": 27
+  },
+  {
+    "date": "2025-08-28 7:00 PM",
+    "team1": "Buffalo Bulls",
+    "score1": 10,
+    "team2": "Minnesota Golden Gophers",
+    "score2": 23
+  },
+  {
+    "date": "2025-08-28 7:00 PM",
+    "team1": "Stephen F. Austin Lumberjacks",
+    "score1": 0,
+    "team2": "Houston Cougars",
+    "score2": 27
+  },
+  {
+    "date": "2025-08-28 8:00 PM",
+    "team1": "Nebraska Cornhuskers",
     "score1": 20,
-    "team2": "UAB",
+    "team2": "Cincinnati Bearcats",
+    "score2": 17
+  },
+  {
+    "date": "2025-08-28 8:00 PM",
+    "team1": "Miami (OH) RedHawks",
+    "score1": 0,
+    "team2": "Wisconsin Badgers",
+    "score2": 17
+  },
+  {
+    "date": "2025-08-28 9:00 PM",
+    "team1": "Stony Brook Seawolves",
+    "score1": 0,
+    "team2": "San Diego State Aztecs",
+    "score2": 42
+  },
+  {
+    "date": "2025-08-29 6:00 PM",
+    "team1": "Western Michigan Broncos",
+    "score1": 6,
+    "team2": "Michigan State Spartans",
+    "score2": 23
+  },
+  {
+    "date": "2025-08-29 6:00 PM",
+    "team1": "Kennesaw State Owls",
+    "score1": 9,
+    "team2": "Wake Forest Demon Deacons",
+    "score2": 10
+  },
+  {
+    "date": "2025-08-29 6:00 PM",
+    "team1": "App State Mountaineers",
+    "score1": 34,
+    "team2": "Charlotte 49ers",
+    "score2": 11
+  },
+  {
+    "date": "2025-08-29 6:30 PM",
+    "team1": "Western Illinois Leathernecks",
+    "score1": 3,
+    "team2": "Illinois Fighting Illini",
+    "score2": 52
+  },
+  {
+    "date": "2025-08-29 7:00 PM",
+    "team1": "Auburn Tigers",
+    "score1": 38,
+    "team2": "Baylor Bears",
+    "score2": 24
+  },
+  {
+    "date": "2025-08-29 7:00 PM",
+    "team1": "Georgia Tech Yellow Jackets",
+    "score1": 27,
+    "team2": "Colorado Buffaloes",
+    "score2": 20
+  },
+  {
+    "date": "2025-08-29 8:30 PM",
+    "team1": "UNLV Rebels",
+    "score1": 38,
+    "team2": "Sam Houston Bearkats",
+    "score2": 21
+  },
+  {
+    "date": "2025-08-29 9:30 PM",
+    "team1": "Central Michigan Chippewas",
+    "score1": 16,
+    "team2": "San Jos\u00e9 State Spartans",
     "score2": 14
   },
   {
-    "date": "2025-08-28 6:00 PM",
-    "team1": "Toledo",
+    "date": "2025-08-30 11:00 AM",
+    "team1": "Mississippi State Bulldogs",
+    "score1": 34,
+    "team2": "Southern Miss Golden Eagles",
+    "score2": 17
+  },
+  {
+    "date": "2025-08-30 11:00 AM",
+    "team1": "Syracuse Orange",
+    "score1": 26,
+    "team2": "Tennessee Volunteers",
+    "score2": 45
+  },
+  {
+    "date": "2025-08-30 11:00 AM",
+    "team1": "Texas Longhorns",
+    "score1": 7,
+    "team2": "Ohio State Buckeyes",
+    "score2": 14
+  },
+  {
+    "date": "2025-08-30 11:00 AM",
+    "team1": "Florida Atlantic Owls",
+    "score1": 7,
+    "team2": "Maryland Terrapins",
+    "score2": 39
+  },
+  {
+    "date": "2025-08-30 11:00 AM",
+    "team1": "Ball State Cardinals",
+    "score1": 0,
+    "team2": "Purdue Boilermakers",
+    "score2": 31
+  },
+  {
+    "date": "2025-08-30 11:00 AM",
+    "team1": "Northwestern Wildcats",
+    "score1": 3,
+    "team2": "Tulane Green Wave",
+    "score2": 23
+  },
+  {
+    "date": "2025-08-30 11:45 AM",
+    "team1": "Toledo Rockets",
+    "score1": 16,
+    "team2": "Kentucky Wildcats",
+    "score2": 24
+  },
+  {
+    "date": "2025-08-30 1:30 PM",
+    "team1": "Old Dominion Monarchs",
     "score1": 14,
-    "team2": "Miami (OH)",
+    "team2": "Indiana Hoosiers",
+    "score2": 27
+  },
+  {
+    "date": "2025-08-30 2:30 PM",
+    "team1": "Alabama Crimson Tide",
+    "score1": 17,
+    "team2": "Florida State Seminoles",
+    "score2": 31
+  },
+  {
+    "date": "2025-08-30 2:30 PM",
+    "team1": "Marshall Thundering Herd",
+    "score1": 7,
+    "team2": "Georgia Bulldogs",
+    "score2": 45
+  },
+  {
+    "date": "2025-08-30 2:30 PM",
+    "team1": "Nevada Wolf Pack",
+    "score1": 11,
+    "team2": "Penn State Nittany Lions",
+    "score2": 46
+  },
+  {
+    "date": "2025-08-30 2:30 PM",
+    "team1": "South Dakota Coyotes",
+    "score1": 7,
+    "team2": "Iowa State Cyclones",
+    "score2": 55
+  },
+  {
+    "date": "2025-08-30 2:30 PM",
+    "team1": "Temple Owls",
+    "score1": 42,
+    "team2": "Massachusetts Minutemen",
     "score2": 10
+  },
+  {
+    "date": "2025-08-30 3:00 PM",
+    "team1": "Montana State Bobcats",
+    "score1": 13,
+    "team2": "Oregon Ducks",
+    "score2": 59
+  },
+  {
+    "date": "2025-08-30 3:00 PM",
+    "team1": "Maine Black Bears",
+    "score1": 7,
+    "team2": "Liberty Flames",
+    "score2": 28
+  },
+  {
+    "date": "2025-08-30 5:00 PM",
+    "team1": "Illinois State Redbirds",
+    "score1": 3,
+    "team2": "Oklahoma Sooners",
+    "score2": 35
+  },
+  {
+    "date": "2025-08-30 5:00 PM",
+    "team1": "UAlbany Great Danes",
+    "score1": 7,
+    "team2": "Iowa Hawkeyes",
+    "score2": 34
+  },
+  {
+    "date": "2025-08-30 5:00 PM",
+    "team1": "Coastal Carolina Chanticleers",
+    "score1": 7,
+    "team2": "Virginia Cavaliers",
+    "score2": 48
+  },
+  {
+    "date": "2025-08-30 5:00 PM",
+    "team1": "Weber State Wildcats",
+    "score1": 10,
+    "team2": "James Madison Dukes",
+    "score2": 45
+  },
+  {
+    "date": "2025-08-30 6:00 PM",
+    "team1": "UTSA Roadrunners",
+    "score1": 24,
+    "team2": "Texas A&M Aggies",
+    "score2": 42
+  },
+  {
+    "date": "2025-08-30 6:00 PM",
+    "team1": "Charleston Southern Buccaneers",
+    "score1": 3,
+    "team2": "Vanderbilt Commodores",
+    "score2": 45
+  },
+  {
+    "date": "2025-08-30 6:00 PM",
+    "team1": "North Dakota Fighting Hawks",
+    "score1": 35,
+    "team2": "Kansas State Wildcats",
+    "score2": 38
+  },
+  {
+    "date": "2025-08-30 6:00 PM",
+    "team1": "Southeast Missouri State Redhawks",
+    "score1": 24,
+    "team2": "Arkansas State Red Wolves",
+    "score2": 42
+  },
+  {
+    "date": "2025-08-30 6:00 PM",
+    "team1": "Nicholls Colonels",
+    "score1": 20,
+    "team2": "Troy Trojans",
+    "score2": 38
+  },
+  {
+    "date": "2025-08-30 6:30 PM",
+    "team1": "LSU Tigers",
+    "score1": 17,
+    "team2": "Clemson Tigers",
+    "score2": 10
+  },
+  {
+    "date": "2025-08-30 6:30 PM",
+    "team1": "Missouri State Bears",
+    "score1": 13,
+    "team2": "USC Trojans",
+    "score2": 73
+  },
+  {
+    "date": "2025-08-30 6:30 PM",
+    "team1": "New Mexico Lobos",
+    "score1": 17,
+    "team2": "Michigan Wolverines",
+    "score2": 34
+  },
+  {
+    "date": "2025-08-30 6:30 PM",
+    "team1": "SE Louisiana Lions",
+    "score1": 0,
+    "team2": "Louisiana Tech Bulldogs",
+    "score2": 24
+  },
+  {
+    "date": "2025-08-30 6:30 PM",
+    "team1": "UTEP Miners",
+    "score1": 16,
+    "team2": "Utah State Aggies",
+    "score2": 28
+  },
+  {
+    "date": "2025-08-30 6:45 PM",
+    "team1": "Georgia State Panthers",
+    "score1": 7,
+    "team2": "Ole Miss Rebels",
+    "score2": 63
+  },
+  {
+    "date": "2025-08-30 7:00 PM",
+    "team1": "Portland State Vikings",
+    "score1": 0,
+    "team2": "BYU Cougars",
+    "score2": 69
+  },
+  {
+    "date": "2025-08-30 7:00 PM",
+    "team1": "Rice Owls",
+    "score1": 14,
+    "team2": "Louisiana Ragin' Cajuns",
+    "score2": 12
+  },
+  {
+    "date": "2025-08-30 7:00 PM",
+    "team1": "Eastern Michigan Eagles",
+    "score1": 27,
+    "team2": "Texas State Bobcats",
+    "score2": 52
+  },
+  {
+    "date": "2025-08-30 8:00 PM",
+    "team1": "Bryant Bulldogs",
+    "score1": 3,
+    "team2": "New Mexico State Aggies",
+    "score2": 19
+  },
+  {
+    "date": "2025-08-30 8:30 PM",
+    "team1": "Georgia Southern Eagles",
+    "score1": 14,
+    "team2": "Fresno State Bulldogs",
+    "score2": 42
+  },
+  {
+    "date": "2025-08-30 9:00 PM",
+    "team1": "Idaho Vandals",
+    "score1": 10,
+    "team2": "Washington State Cougars",
+    "score2": 13
+  },
+  {
+    "date": "2025-08-30 9:00 PM",
+    "team1": "Northern Arizona Lumberjacks",
+    "score1": 19,
+    "team2": "Arizona State Sun Devils",
+    "score2": 38
+  },
+  {
+    "date": "2025-08-30 9:30 PM",
+    "team1": "California Golden Bears",
+    "score1": 34,
+    "team2": "Oregon State Beavers",
+    "score2": 15
+  },
+  {
+    "date": "2025-08-30 9:30 PM",
+    "team1": "Hawai'i Rainbow Warriors",
+    "score1": 6,
+    "team2": "Arizona Wildcats",
+    "score2": 40
+  },
+  {
+    "date": "2025-08-30 10:00 PM",
+    "team1": "Utah Utes",
+    "score1": 43,
+    "team2": "UCLA Bruins",
+    "score2": 10
+  },
+  {
+    "date": "2025-08-30 10:00 PM",
+    "team1": "Colorado State Rams",
+    "score1": 21,
+    "team2": "Washington Huskies",
+    "score2": 38
+  },
+  {
+    "date": "2025-08-31 2:00 PM",
+    "team1": "Virginia Tech Hokies",
+    "score1": 11,
+    "team2": "South Carolina Gamecocks",
+    "score2": 24
+  },
+  {
+    "date": "2025-08-31 6:30 PM",
+    "team1": "Notre Dame Fighting Irish",
+    "score1": 24,
+    "team2": "Miami Hurricanes",
+    "score2": 27
   }
 ]

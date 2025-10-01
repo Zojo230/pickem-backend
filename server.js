@@ -80,6 +80,63 @@ app.use((req, res, next) => {
   if (req.path.startsWith('/api/authenticate')) return next();
   return express.json()(req, res, next);
 });
+// === STEP 1: Roster gate (Game Name + PIN; CASE-SENSITIVE name) ==========
+const DATA_DIR_SAFE = (process.env.DATA_DIR ? process.env.DATA_DIR.trim() : path.join(__dirname, 'data'));
+const ROSTER_FILE = path.join(DATA_DIR_SAFE, 'roster.json');
+
+function safeReadJSON(p) {
+  try { return JSON.parse(fs.readFileSync(p, 'utf8')); }
+  catch { return null; }
+}
+
+function buildRosterIndex(rosterRaw) {
+  const index = new Map();
+  if (!rosterRaw) return index;
+  const rows = Array.isArray(rosterRaw) ? rosterRaw : Object.values(rosterRaw);
+  for (const row of rows) {
+    if (!row) continue;
+    const name = (row.gameName ?? row.game_name ?? row.name ?? row['Game Name'] ?? '').toString().trim();
+    const pin  = (row.pin ?? row.PIN ?? row.pin_code ?? row['PIN'] ?? '').toString().trim();
+    if (name) index.set(name, pin);
+  }
+  return index;
+}
+
+let rosterIndex = buildRosterIndex(safeReadJSON(ROSTER_FILE));
+console.log('[roster] loaded:', ROSTER_FILE, 'entries:', rosterIndex.size);
+
+// Auto-reload when roster.json changes
+fs.watchFile(ROSTER_FILE, { interval: 5000 }, () => {
+  rosterIndex = buildRosterIndex(safeReadJSON(ROSTER_FILE));
+  console.log('[roster] reloaded:', ROSTER_FILE, 'entries:', rosterIndex.size);
+});
+
+function authenticatePlayerExact(nameInput, pinInput) {
+  const name = (nameInput ?? '').toString();        // CASE-SENSITIVE compare
+  const pin  = (pinInput  ?? '').toString().trim(); // PIN exact match
+  if (!name || !pin) return false;
+  const expected = rosterIndex.get(name.trim());
+  return expected !== undefined && expected.toString().trim() === pin;
+}
+
+// Middleware to guard pick submissions
+function requireValidPlayer(req, res, next) {
+  const src = req.body || {};
+  const name =
+    (src.name ?? src.gameName ?? src.game_name ?? src.player ?? src.playerName ?? '').toString();
+  const pin  =
+    (src.pin  ?? src.PIN      ?? src.pin_code ?? src.password ?? '').toString();
+
+  if (!rosterIndex.size) {
+    return res.status(503).json({ ok: false, error: 'Roster unavailable' });
+  }
+  if (!authenticatePlayerExact(name, pin)) {
+    return res.status(401).json({ ok: false, error: 'Invalid Game Name or PIN (check spelling/case).' });
+  }
+  req.player = { name, pin }; // available to downstream handlers
+  return next();
+}
+// === END STEP 1 ===========================================================
 
 // ---------- Directories ----------
 const dataDirRaw   = (process.env.DATA_DIR   || './data').replace(/\r?\n/g, '').trim();
@@ -990,9 +1047,27 @@ app.post('/api/upload/roster', upload.single('file'), (req, res) => {
     return res.status(500).send('Failed to process roster file.');
   }
 });
+// ---- Auth probe for frontend (Game Name + PIN check; case-sensitive name) ----
+app.post('/api/authenticate', (req, res) => {
+  const src = req.body || {};
+  const name = (src.name ?? src.gameName ?? src.game_name ?? '').toString();
+  const pin  = (src.pin  ?? src.PIN      ?? src.pin_code  ?? '').toString();
+
+  if (!rosterIndex.size) {
+    return res.status(503).json({ ok: false, error: 'Roster unavailable' });
+  }
+  if (authenticatePlayerExact(name, pin)) {
+    return res.json({ ok: true });
+  }
+  return res.status(401).json({
+    ok: false,
+    error: 'Invalid Game Name or PIN (check spelling/case).'
+  });
+});
+// -------------------------------------------------------------------------------
 
 // ---------- Picks submission (FINAL — deny duplicate submissions) ----------
-app.post('/submit-picks/:week', (req, res) => {
+app.post('/submit-picks/:week', requireValidPlayer, (req, res) => {
   try {
     const weekParam = parseInt(req.params.week, 10);
     const week = Number.isFinite(weekParam) && weekParam > 0 ? weekParam : 1;

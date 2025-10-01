@@ -1,0 +1,632 @@
+[
+  {
+    "date": "2025-08-28 4:30 PM",
+    "team1": "Boise State",
+    "score1": 7,
+    "team2": "South Florida",
+    "score2": 34
+  },
+  {
+    "date": "2025-08-28 5:00 PM",
+    "team1": "Ohio",
+    "score1": 31,
+    "team2": "Rutgers",
+    "score2": 34
+  },
+  {
+    "date": "2025-08-28 5:00 PM",
+    "team1": "Lafayette",
+    "score1": 7,
+    "team2": "Bowling Green",
+    "score2": 26
+  },
+  {
+    "date": "2025-08-28 6:00 PM",
+    "team1": "East Carolina",
+    "score1": 17,
+    "team2": "NC State",
+    "score2": 24
+  },
+  {
+    "date": "2025-08-28 6:00 PM",
+    "team1": "Jacksonville State",
+    "score1": 10,
+    "team2": "UCF",
+    "score2": 17
+  },
+  {
+    "date": "2025-08-28 6:00 PM",
+    "team1": "Delaware State",
+    "score1": 17,
+    "team2": "Delaware",
+    "score2": 35
+  },
+  {
+    "date": "2025-08-28 6:00 PM",
+    "team1": "Saint Francis",
+    "score1": 0,
+    "team2": "UL Monroe",
+    "score2": 29
+  },
+  {
+    "date": "2025-08-28 6:00 PM",
+    "team1": "Wyoming",
+    "score1": 10,
+    "team2": "Akron",
+    "score2": 0
+  },
+  {
+    "date": "2025-08-28 6:30 PM",
+    "team1": "Central Arkansas",
+    "score1": 6,
+    "team2": "Missouri",
+    "score2": 61
+  },
+  {
+    "date": "2025-08-28 6:30 PM",
+    "team1": "Elon",
+    "score1": 17,
+    "team2": "Duke",
+    "score2": 45
+  },
+  {
+    "date": "2025-08-28 6:30 PM",
+    "team1": "UT Martin",
+    "score1": 7,
+    "team2": "Oklahoma State",
+    "score2": 27
+  },
+  {
+    "date": "2025-08-28 7:00 PM",
+    "team1": "Buffalo",
+    "score1": 10,
+    "team2": "Minnesota",
+    "score2": 23
+  },
+  {
+    "date": "2025-08-28 7:00 PM",
+    "team1": "Stephen F. Austin",
+    "score1": 0,
+    "team2": "Houston",
+    "score2": 27
+  },
+  {
+    "date": "2025-08-28 7:30 PM",
+    "team1": "Alabama State",
+    "score1": 42,
+    "team2": "UAB",
+    "score2": 52
+  },
+  {
+    "date": "2025-08-28 8:00 PM",
+    "team1": "Nebraska",
+    "score1": 20,
+    "team2": "Cincinnati",
+    "score2": 17
+  },
+  {
+    "date": "2025-08-28 8:00 PM",
+    "team1": "Miami (OH)",
+    "score1": 0,
+    "team2": "Wisconsin",
+    "score2": 17
+  },
+  {
+    "date": "2025-08-28 9:00 PM",
+    "team1": "Stony Brook",
+    "score1": 0,
+    "team2": "San Diego State",
+    "score2": 42
+  },
+  {
+    "date": "2025-08-29 5:00 PM",
+    "team1": "Tarleton State",
+    "score1": 30,
+    "team2": "Army",
+    "score2": 27
+  },
+  {
+    "date": "2025-08-29 6:00 PM",
+    "team1": "Western Michigan",
+    "score1": 6,
+    "team2": "Michigan State",
+    "score2": 23
+  },
+  {
+    "date": "2025-08-29 6:00 PM",
+    "team1": "Kennesaw State",
+    "score1": 9,
+    "team2": "Wake Forest",
+    "score2": 10
+  },
+  {
+    "date": "2025-08-29 6:00 PM",
+    "team1": "App State",
+    "score1": 34,
+    "team2": "Charlotte",
+    "score2": 11
+  },
+  {
+    "date": "2025-08-29 6:30 PM",
+    "team1": "Western Illinois",
+    "score1": 3,
+    "team2": "Illinois",
+    "score2": 52
+  },
+  {
+    "date": "2025-08-29 6:30 PM",
+    "team1": "Wagner",
+    "score1": 7,
+    "team2": "Kansas",
+    "score2": 46
+  },
+  {
+    "date": "2025-08-29 7:00 PM",
+    "team1": "Auburn",
+    "score1": 38,
+    "team2": "Baylor",
+    "score2": 24
+  },
+  {
+    "date": "2025-08-29 7:00 PM",
+    "team1": "Georgia Tech",
+    "score1": 27,
+    "team2": "Colorado",
+    "score2": 20
+  },
+  {
+    "date": "2025-08-29 7:15 PM",
+    "team1": "Bethune-Cookman",
+    "score1": 9,
+    "team2": "Florida International",
+    "score2": 42
+  },
+  {
+    "date": "2025-08-29 8:30 PM",
+    "team1": "UNLV",
+    "score1": 38,
+    "team2": "Sam Houston",
+    "score2": 21
+  },
+  {
+    "date": "2025-08-29 9:30 PM",
+    "team1": "Central Michigan",
+    "score1": 16,
+    "team2": "San José State",
+    "score2": 14
+  },
+  {
+    "date": "2025-08-30 11:00 AM",
+    "team1": "Texas",
+    "score1": 7,
+    "team2": "Ohio State",
+    "score2": 14
+  },
+  {
+    "date": "2025-08-30 11:00 AM",
+    "team1": "Syracuse",
+    "score1": 26,
+    "team2": "Tennessee",
+    "score2": 45
+  },
+  {
+    "date": "2025-08-30 11:00 AM",
+    "team1": "Mississippi State",
+    "score1": 34,
+    "team2": "Southern Miss",
+    "score2": 17
+  },
+  {
+    "date": "2025-08-30 11:00 AM",
+    "team1": "Florida Atlantic",
+    "score1": 7,
+    "team2": "Maryland",
+    "score2": 39
+  },
+  {
+    "date": "2025-08-30 11:00 AM",
+    "team1": "Ball State",
+    "score1": 0,
+    "team2": "Purdue",
+    "score2": 31
+  },
+  {
+    "date": "2025-08-30 11:00 AM",
+    "team1": "Northwestern",
+    "score1": 3,
+    "team2": "Tulane",
+    "score2": 23
+  },
+  {
+    "date": "2025-08-30 11:00 AM",
+    "team1": "Duquesne",
+    "score1": 9,
+    "team2": "Pittsburgh",
+    "score2": 61
+  },
+  {
+    "date": "2025-08-30 11:00 AM",
+    "team1": "VMI",
+    "score1": 7,
+    "team2": "Navy",
+    "score2": 52
+  },
+  {
+    "date": "2025-08-30 11:00 AM",
+    "team1": "Merrimack",
+    "score1": 17,
+    "team2": "Kent State",
+    "score2": 21
+  },
+  {
+    "date": "2025-08-30 11:45 AM",
+    "team1": "Toledo",
+    "score1": 16,
+    "team2": "Kentucky",
+    "score2": 24
+  },
+  {
+    "date": "2025-08-30 1:00 PM",
+    "team1": "Fordham",
+    "score1": 10,
+    "team2": "Boston College",
+    "score2": 66
+  },
+  {
+    "date": "2025-08-30 1:00 PM",
+    "team1": "Robert Morris",
+    "score1": 3,
+    "team2": "West Virginia",
+    "score2": 45
+  },
+  {
+    "date": "2025-08-30 1:00 PM",
+    "team1": "Central Connecticut",
+    "score1": 13,
+    "team2": "UConn",
+    "score2": 59
+  },
+  {
+    "date": "2025-08-30 1:30 PM",
+    "team1": "Old Dominion",
+    "score1": 14,
+    "team2": "Indiana",
+    "score2": 27
+  },
+  {
+    "date": "2025-08-30 2:00 PM",
+    "team1": "Eastern Kentucky",
+    "score1": 17,
+    "team2": "Louisville",
+    "score2": 51
+  },
+  {
+    "date": "2025-08-30 2:30 PM",
+    "team1": "Nevada",
+    "score1": 11,
+    "team2": "Penn State",
+    "score2": 46
+  },
+  {
+    "date": "2025-08-30 2:30 PM",
+    "team1": "Marshall",
+    "score1": 7,
+    "team2": "Georgia",
+    "score2": 45
+  },
+  {
+    "date": "2025-08-30 2:30 PM",
+    "team1": "Alabama",
+    "score1": 17,
+    "team2": "Florida State",
+    "score2": 31
+  },
+  {
+    "date": "2025-08-30 2:30 PM",
+    "team1": "South Dakota",
+    "score1": 7,
+    "team2": "Iowa State",
+    "score2": 55
+  },
+  {
+    "date": "2025-08-30 2:30 PM",
+    "team1": "Bucknell",
+    "score1": 13,
+    "team2": "Air Force",
+    "score2": 49
+  },
+  {
+    "date": "2025-08-30 2:30 PM",
+    "team1": "Temple",
+    "score1": 42,
+    "team2": "Massachusetts",
+    "score2": 10
+  },
+  {
+    "date": "2025-08-30 2:30 PM",
+    "team1": "Holy Cross",
+    "score1": 17,
+    "team2": "Northern Illinois",
+    "score2": 19
+  },
+  {
+    "date": "2025-08-30 3:00 PM",
+    "team1": "Montana State",
+    "score1": 13,
+    "team2": "Oregon",
+    "score2": 59
+  },
+  {
+    "date": "2025-08-30 3:00 PM",
+    "team1": "Maine",
+    "score1": 7,
+    "team2": "Liberty",
+    "score2": 28
+  },
+  {
+    "date": "2025-08-30 3:15 PM",
+    "team1": "Alabama A&M",
+    "score1": 7,
+    "team2": "Arkansas",
+    "score2": 52
+  },
+  {
+    "date": "2025-08-30 3:30 PM",
+    "team1": "Chattanooga",
+    "score1": 10,
+    "team2": "Memphis",
+    "score2": 45
+  },
+  {
+    "date": "2025-08-30 5:00 PM",
+    "team1": "Illinois State",
+    "score1": 3,
+    "team2": "Oklahoma",
+    "score2": 35
+  },
+  {
+    "date": "2025-08-30 5:00 PM",
+    "team1": "UAlbany",
+    "score1": 7,
+    "team2": "Iowa",
+    "score2": 34
+  },
+  {
+    "date": "2025-08-30 5:00 PM",
+    "team1": "Coastal Carolina",
+    "score1": 7,
+    "team2": "Virginia",
+    "score2": 48
+  },
+  {
+    "date": "2025-08-30 5:00 PM",
+    "team1": "Weber State",
+    "score1": 10,
+    "team2": "James Madison",
+    "score2": 45
+  },
+  {
+    "date": "2025-08-30 6:00 PM",
+    "team1": "Long Island University",
+    "score1": 0,
+    "team2": "Florida",
+    "score2": 55
+  },
+  {
+    "date": "2025-08-30 6:00 PM",
+    "team1": "North Dakota",
+    "score1": 35,
+    "team2": "Kansas State",
+    "score2": 38
+  },
+  {
+    "date": "2025-08-30 6:00 PM",
+    "team1": "UTSA",
+    "score1": 24,
+    "team2": "Texas A&M",
+    "score2": 42
+  },
+  {
+    "date": "2025-08-30 6:00 PM",
+    "team1": "Charleston Southern",
+    "score1": 3,
+    "team2": "Vanderbilt",
+    "score2": 45
+  },
+  {
+    "date": "2025-08-30 6:00 PM",
+    "team1": "Austin Peay",
+    "score1": 34,
+    "team2": "Middle Tennessee",
+    "score2": 14
+  },
+  {
+    "date": "2025-08-30 6:00 PM",
+    "team1": "North Alabama",
+    "score1": 6,
+    "team2": "Western Kentucky",
+    "score2": 55
+  },
+  {
+    "date": "2025-08-30 6:00 PM",
+    "team1": "Southeast Missouri State",
+    "score1": 24,
+    "team2": "Arkansas State",
+    "score2": 42
+  },
+  {
+    "date": "2025-08-30 6:00 PM",
+    "team1": "Morgan State",
+    "score1": 21,
+    "team2": "South Alabama",
+    "score2": 38
+  },
+  {
+    "date": "2025-08-30 6:00 PM",
+    "team1": "Nicholls",
+    "score1": 20,
+    "team2": "Troy",
+    "score2": 38
+  },
+  {
+    "date": "2025-08-30 6:30 PM",
+    "team1": "LSU",
+    "score1": 17,
+    "team2": "Clemson",
+    "score2": 10
+  },
+  {
+    "date": "2025-08-30 6:30 PM",
+    "team1": "New Mexico",
+    "score1": 17,
+    "team2": "Michigan",
+    "score2": 34
+  },
+  {
+    "date": "2025-08-30 6:30 PM",
+    "team1": "Arkansas-Pine Bluff",
+    "score1": 7,
+    "team2": "Texas Tech",
+    "score2": 67
+  },
+  {
+    "date": "2025-08-30 6:30 PM",
+    "team1": "Missouri State",
+    "score1": 13,
+    "team2": "USC",
+    "score2": 73
+  },
+  {
+    "date": "2025-08-30 6:30 PM",
+    "team1": "SE Louisiana",
+    "score1": 0,
+    "team2": "Louisiana Tech",
+    "score2": 24
+  },
+  {
+    "date": "2025-08-30 6:30 PM",
+    "team1": "UTEP",
+    "score1": 16,
+    "team2": "Utah State",
+    "score2": 28
+  },
+  {
+    "date": "2025-08-30 6:45 PM",
+    "team1": "Georgia State",
+    "score1": 7,
+    "team2": "Ole Miss",
+    "score2": 63
+  },
+  {
+    "date": "2025-08-30 7:00 PM",
+    "team1": "Portland State",
+    "score1": 0,
+    "team2": "BYU",
+    "score2": 69
+  },
+  {
+    "date": "2025-08-30 7:00 PM",
+    "team1": "Rice",
+    "score1": 14,
+    "team2": "Louisiana",
+    "score2": 12
+  },
+  {
+    "date": "2025-08-30 7:00 PM",
+    "team1": "Eastern Michigan",
+    "score1": 27,
+    "team2": "Texas State",
+    "score2": 52
+  },
+  {
+    "date": "2025-08-30 7:00 PM",
+    "team1": "Lamar",
+    "score1": 0,
+    "team2": "North Texas",
+    "score2": 51
+  },
+  {
+    "date": "2025-08-30 7:00 PM",
+    "team1": "Abilene Christian",
+    "score1": 7,
+    "team2": "Tulsa",
+    "score2": 35
+  },
+  {
+    "date": "2025-08-30 8:00 PM",
+    "team1": "Bryant",
+    "score1": 3,
+    "team2": "New Mexico State",
+    "score2": 19
+  },
+  {
+    "date": "2025-08-30 8:15 PM",
+    "team1": "East Texas A&M",
+    "score1": 13,
+    "team2": "SMU",
+    "score2": 42
+  },
+  {
+    "date": "2025-08-30 8:30 PM",
+    "team1": "Georgia Southern",
+    "score1": 14,
+    "team2": "Fresno State",
+    "score2": 42
+  },
+  {
+    "date": "2025-08-30 9:00 PM",
+    "team1": "Northern Arizona",
+    "score1": 19,
+    "team2": "Arizona State",
+    "score2": 38
+  },
+  {
+    "date": "2025-08-30 9:00 PM",
+    "team1": "Idaho",
+    "score1": 10,
+    "team2": "Washington State",
+    "score2": 13
+  },
+  {
+    "date": "2025-08-30 9:30 PM",
+    "team1": "California",
+    "score1": 34,
+    "team2": "Oregon State",
+    "score2": 15
+  },
+  {
+    "date": "2025-08-30 9:30 PM",
+    "team1": "Hawai'i",
+    "score1": 6,
+    "team2": "Arizona",
+    "score2": 40
+  },
+  {
+    "date": "2025-08-30 10:00 PM",
+    "team1": "Utah",
+    "score1": 43,
+    "team2": "UCLA",
+    "score2": 10
+  },
+  {
+    "date": "2025-08-30 10:00 PM",
+    "team1": "Colorado State",
+    "score1": 21,
+    "team2": "Washington",
+    "score2": 38
+  },
+  {
+    "date": "2025-08-31 2:00 PM",
+    "team1": "Virginia Tech",
+    "score1": 11,
+    "team2": "South Carolina",
+    "score2": 24
+  },
+  {
+    "date": "2025-08-31 6:30 PM",
+    "team1": "Notre Dame",
+    "score1": 24,
+    "team2": "Miami",
+    "score2": 27
+  }
+]

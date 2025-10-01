@@ -1,0 +1,20 @@
+[
+  {
+    "id": "12345",
+    "startTime": "2025-09-07T17:00:00Z",
+    "home": "San Francisco 49ers",
+    "away": "NY Jets",
+    "status": "Final",
+    "awayScore": 17,
+    "homeScore": 27
+  },
+  {
+    "id": "67890",
+    "startTime": "2025-09-07T20:25:00Z",
+    "home": "New York Giants",
+    "away": "LA Rams",
+    "status": "Final",
+    "awayScore": 21,
+    "homeScore": 24
+  }
+]

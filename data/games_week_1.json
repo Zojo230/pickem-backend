@@ -1,23 +1,450 @@
 [
   {
-    "date": "2025-08-28 6:00 PM",
-    "team1": "Akron",
-    "spread1": -3.5,
-    "team2": "Kent State",
-    "spread2": 3.5
+    "date": "2025-08-28 4:30 PM",
+    "team1": "Boise State Broncos",
+    "spread1": -6.5,
+    "team2": "South Florida Bulls",
+    "spread2": 6.5
+  },
+  {
+    "date": "2025-08-28 5:00 PM",
+    "team1": "Ohio Bobcats",
+    "spread1": 15,
+    "team2": "Rutgers Scarlet Knights",
+    "spread2": -15
   },
   {
     "date": "2025-08-28 6:00 PM",
-    "team1": "UAB",
-    "spread1": 7,
-    "team2": "Troy",
-    "spread2": -7
+    "team1": "East Carolina Pirates",
+    "spread1": 14.5,
+    "team2": "NC State Wolfpack",
+    "spread2": -14.5
   },
   {
     "date": "2025-08-28 6:00 PM",
-    "team1": "Miami (OH)",
+    "team1": "Jacksonville State Gamecocks",
+    "spread1": 20.5,
+    "team2": "UCF Knights",
+    "spread2": -20.5
+  },
+  {
+    "date": "2025-08-28 6:00 PM",
+    "team1": "Wyoming Cowboys",
+    "spread1": -6.5,
+    "team2": "Akron Zips",
+    "spread2": 6.5
+  },
+  {
+    "date": "2025-08-28 6:30 PM",
+    "team1": "Elon Phoenix",
+    "spread1": 34.5,
+    "team2": "Duke Blue Devils",
+    "spread2": -34.5
+  },
+  {
+    "date": "2025-08-28 6:30 PM",
+    "team1": "UT Martin Skyhawks",
+    "spread1": 23.5,
+    "team2": "Oklahoma State Cowboys",
+    "spread2": -23.5
+  },
+  {
+    "date": "2025-08-28 7:00 PM",
+    "team1": "Buffalo Bulls",
+    "spread1": 17.5,
+    "team2": "Minnesota Golden Gophers",
+    "spread2": -17.5
+  },
+  {
+    "date": "2025-08-28 7:00 PM",
+    "team1": "Stephen F. Austin Lumberjacks",
+    "spread1": 22.5,
+    "team2": "Houston Cougars",
+    "spread2": -22.5
+  },
+  {
+    "date": "2025-08-28 8:00 PM",
+    "team1": "Nebraska Cornhuskers",
+    "spread1": -6.5,
+    "team2": "Cincinnati Bearcats",
+    "spread2": 6.5
+  },
+  {
+    "date": "2025-08-28 8:00 PM",
+    "team1": "Miami (OH) RedHawks",
+    "spread1": 17.5,
+    "team2": "Wisconsin Badgers",
+    "spread2": -17.5
+  },
+  {
+    "date": "2025-08-28 9:00 PM",
+    "team1": "Stony Brook Seawolves",
+    "spread1": 18.5,
+    "team2": "San Diego State Aztecs",
+    "spread2": -18.5
+  },
+  {
+    "date": "2025-08-29 6:00 PM",
+    "team1": "Western Michigan Broncos",
+    "spread1": 20.5,
+    "team2": "Michigan State Spartans",
+    "spread2": -20.5
+  },
+  {
+    "date": "2025-08-29 6:00 PM",
+    "team1": "Kennesaw State Owls",
+    "spread1": 17.5,
+    "team2": "Wake Forest Demon Deacons",
+    "spread2": -17.5
+  },
+  {
+    "date": "2025-08-29 6:00 PM",
+    "team1": "App State Mountaineers",
+    "spread1": -6.5,
+    "team2": "Charlotte 49ers",
+    "spread2": 6.5
+  },
+  {
+    "date": "2025-08-29 6:30 PM",
+    "team1": "Western Illinois Leathernecks",
+    "spread1": 45.5,
+    "team2": "Illinois Fighting Illini",
+    "spread2": -45.5
+  },
+  {
+    "date": "2025-08-29 7:00 PM",
+    "team1": "Auburn Tigers",
     "spread1": -2.5,
-    "team2": "Toledo",
+    "team2": "Baylor Bears",
     "spread2": 2.5
+  },
+  {
+    "date": "2025-08-29 7:00 PM",
+    "team1": "Georgia Tech Yellow Jackets",
+    "spread1": -4.5,
+    "team2": "Colorado Buffaloes",
+    "spread2": 4.5
+  },
+  {
+    "date": "2025-08-29 8:30 PM",
+    "team1": "UNLV Rebels",
+    "spread1": -10,
+    "team2": "Sam Houston Bearkats",
+    "spread2": 10
+  },
+  {
+    "date": "2025-08-29 9:30 PM",
+    "team1": "Central Michigan Chippewas",
+    "spread1": 11,
+    "team2": "San José State Spartans",
+    "spread2": -11
+  },
+  {
+    "date": "2025-08-30 11:00 AM",
+    "team1": "Mississippi State Bulldogs",
+    "spread1": -12.5,
+    "team2": "Southern Miss Golden Eagles",
+    "spread2": 12.5
+  },
+  {
+    "date": "2025-08-30 11:00 AM",
+    "team1": "Syracuse Orange",
+    "spread1": 13.5,
+    "team2": "Tennessee Volunteers",
+    "spread2": -13.5
+  },
+  {
+    "date": "2025-08-30 11:00 AM",
+    "team1": "Texas Longhorns",
+    "spread1": 2.5,
+    "team2": "Ohio State Buckeyes",
+    "spread2": -2.5
+  },
+  {
+    "date": "2025-08-30 11:00 AM",
+    "team1": "Florida Atlantic Owls",
+    "spread1": 14.5,
+    "team2": "Maryland Terrapins",
+    "spread2": -14.5
+  },
+  {
+    "date": "2025-08-30 11:00 AM",
+    "team1": "Ball State Cardinals",
+    "spread1": 17.5,
+    "team2": "Purdue Boilermakers",
+    "spread2": -17.5
+  },
+  {
+    "date": "2025-08-30 11:00 AM",
+    "team1": "Northwestern Wildcats",
+    "spread1": 4.5,
+    "team2": "Tulane Green Wave",
+    "spread2": -4.5
+  },
+  {
+    "date": "2025-08-30 11:45 AM",
+    "team1": "Toledo Rockets",
+    "spread1": 9.5,
+    "team2": "Kentucky Wildcats",
+    "spread2": -9.5
+  },
+  {
+    "date": "2025-08-30 1:30 PM",
+    "team1": "Old Dominion Monarchs",
+    "spread1": 24,
+    "team2": "Indiana Hoosiers",
+    "spread2": -24
+  },
+  {
+    "date": "2025-08-30 2:30 PM",
+    "team1": "Alabama Crimson Tide",
+    "spread1": -13.5,
+    "team2": "Florida State Seminoles",
+    "spread2": 13.5
+  },
+  {
+    "date": "2025-08-30 2:30 PM",
+    "team1": "Marshall Thundering Herd",
+    "spread1": 39.5,
+    "team2": "Georgia Bulldogs",
+    "spread2": -39.5
+  },
+  {
+    "date": "2025-08-30 2:30 PM",
+    "team1": "Nevada Wolf Pack",
+    "spread1": 44,
+    "team2": "Penn State Nittany Lions",
+    "spread2": -44
+  },
+  {
+    "date": "2025-08-30 2:30 PM",
+    "team1": "South Dakota Coyotes",
+    "spread1": 14.5,
+    "team2": "Iowa State Cyclones",
+    "spread2": -14.5
+  },
+  {
+    "date": "2025-08-30 2:30 PM",
+    "team1": "Temple Owls",
+    "spread1": -2.5,
+    "team2": "Massachusetts Minutemen",
+    "spread2": 2.5
+  },
+  {
+    "date": "2025-08-30 3:00 PM",
+    "team1": "Montana State Bobcats",
+    "spread1": 29.5,
+    "team2": "Oregon Ducks",
+    "spread2": -29.5
+  },
+  {
+    "date": "2025-08-30 3:00 PM",
+    "team1": "Maine Black Bears",
+    "spread1": 25.5,
+    "team2": "Liberty Flames",
+    "spread2": -25.5
+  },
+  {
+    "date": "2025-08-30 5:00 PM",
+    "team1": "Illinois State Redbirds",
+    "spread1": 35.5,
+    "team2": "Oklahoma Sooners",
+    "spread2": -35.5
+  },
+  {
+    "date": "2025-08-30 5:00 PM",
+    "team1": "UAlbany Great Danes",
+    "spread1": 38.5,
+    "team2": "Iowa Hawkeyes",
+    "spread2": -38.5
+  },
+  {
+    "date": "2025-08-30 5:00 PM",
+    "team1": "Coastal Carolina Chanticleers",
+    "spread1": 12.5,
+    "team2": "Virginia Cavaliers",
+    "spread2": -12.5
+  },
+  {
+    "date": "2025-08-30 5:00 PM",
+    "team1": "Weber State Wildcats",
+    "spread1": 25.5,
+    "team2": "James Madison Dukes",
+    "spread2": -25.5
+  },
+  {
+    "date": "2025-08-30 6:00 PM",
+    "team1": "UTSA Roadrunners",
+    "spread1": 24.5,
+    "team2": "Texas A&M Aggies",
+    "spread2": -24.5
+  },
+  {
+    "date": "2025-08-30 6:00 PM",
+    "team1": "Charleston Southern Buccaneers",
+    "spread1": 37,
+    "team2": "Vanderbilt Commodores",
+    "spread2": -37
+  },
+  {
+    "date": "2025-08-30 6:00 PM",
+    "team1": "North Dakota Fighting Hawks",
+    "spread1": 25.5,
+    "team2": "Kansas State Wildcats",
+    "spread2": -25.5
+  },
+  {
+    "date": "2025-08-30 6:00 PM",
+    "team1": "Southeast Missouri State Redhawks",
+    "spread1": 10.5,
+    "team2": "Arkansas State Red Wolves",
+    "spread2": -10.5
+  },
+  {
+    "date": "2025-08-30 6:00 PM",
+    "team1": "Nicholls Colonels",
+    "spread1": 20.5,
+    "team2": "Troy Trojans",
+    "spread2": -20.5
+  },
+  {
+    "date": "2025-08-30 6:30 PM",
+    "team1": "LSU Tigers",
+    "spread1": 3.5,
+    "team2": "Clemson Tigers",
+    "spread2": -3.5
+  },
+  {
+    "date": "2025-08-30 6:30 PM",
+    "team1": "Missouri State Bears",
+    "spread1": 35.5,
+    "team2": "USC Trojans",
+    "spread2": -35.5
+  },
+  {
+    "date": "2025-08-30 6:30 PM",
+    "team1": "New Mexico Lobos",
+    "spread1": 34.5,
+    "team2": "Michigan Wolverines",
+    "spread2": -34.5
+  },
+  {
+    "date": "2025-08-30 6:30 PM",
+    "team1": "SE Louisiana Lions",
+    "spread1": 12,
+    "team2": "Louisiana Tech Bulldogs",
+    "spread2": -12
+  },
+  {
+    "date": "2025-08-30 6:30 PM",
+    "team1": "UTEP Miners",
+    "spread1": 5.5,
+    "team2": "Utah State Aggies",
+    "spread2": -5.5
+  },
+  {
+    "date": "2025-08-30 6:45 PM",
+    "team1": "Georgia State Panthers",
+    "spread1": 35.5,
+    "team2": "Ole Miss Rebels",
+    "spread2": -35.5
+  },
+  {
+    "date": "2025-08-30 7:00 PM",
+    "team1": "Portland State Vikings",
+    "spread1": 43.5,
+    "team2": "BYU Cougars",
+    "spread2": -43.5
+  },
+  {
+    "date": "2025-08-30 7:00 PM",
+    "team1": "Rice Owls",
+    "spread1": 11.5,
+    "team2": "Louisiana Ragin' Cajuns",
+    "spread2": -11.5
+  },
+  {
+    "date": "2025-08-30 7:00 PM",
+    "team1": "Eastern Michigan Eagles",
+    "spread1": 13.5,
+    "team2": "Texas State Bobcats",
+    "spread2": -13.5
+  },
+  {
+    "date": "2025-08-30 8:00 PM",
+    "team1": "Bryant Bulldogs",
+    "spread1": 20,
+    "team2": "New Mexico State Aggies",
+    "spread2": -20
+  },
+  {
+    "date": "2025-08-30 8:30 PM",
+    "team1": "Georgia Southern Eagles",
+    "spread1": -1.5,
+    "team2": "Fresno State Bulldogs",
+    "spread2": 1.5
+  },
+  {
+    "date": "2025-08-30 9:00 PM",
+    "team1": "Idaho Vandals",
+    "spread1": 13.5,
+    "team2": "Washington State Cougars",
+    "spread2": -13.5
+  },
+  {
+    "date": "2025-08-30 9:00 PM",
+    "team1": "Northern Arizona Lumberjacks",
+    "spread1": 28.5,
+    "team2": "Arizona State Sun Devils",
+    "spread2": -28.5
+  },
+  {
+    "date": "2025-08-30 9:30 PM",
+    "team1": "California Golden Bears",
+    "spread1": 2,
+    "team2": "Oregon State Beavers",
+    "spread2": -2
+  },
+  {
+    "date": "2025-08-30 9:30 PM",
+    "team1": "Hawai'i Rainbow Warriors",
+    "spread1": 17.5,
+    "team2": "Arizona Wildcats",
+    "spread2": -17.5
+  },
+  {
+    "date": "2025-08-30 10:00 PM",
+    "team1": "Utah Utes",
+    "spread1": -6,
+    "team2": "UCLA Bruins",
+    "spread2": 6
+  },
+  {
+    "date": "2025-08-30 10:00 PM",
+    "team1": "Colorado State Rams",
+    "spread1": 22.5,
+    "team2": "Washington Huskies",
+    "spread2": -22.5
+  },
+  {
+    "date": "2025-08-31 2:00 PM",
+    "team1": "Virginia Tech Hokies",
+    "spread1": 8,
+    "team2": "South Carolina Gamecocks",
+    "spread2": -8
+  },
+  {
+    "date": "2025-08-31 6:30 PM",
+    "team1": "Notre Dame Fighting Irish",
+    "spread1": -2.5,
+    "team2": "Miami Hurricanes",
+    "spread2": 2.5
+  },
+  {
+    "date": "2025-09-01 7:00 PM",
+    "team1": "TCU Horned Frogs",
+    "spread1": -3,
+    "team2": "North Carolina Tar Heels",
+    "spread2": 3
   }
 ]
