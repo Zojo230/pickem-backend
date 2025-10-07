@@ -690,11 +690,12 @@ function verifyNormalizeScores(week, incomingScores) {
 }
 
 // ---------- Winners calculation ----------
+// --------- Winners calculation ---------
 function calculateTotalWinners(week) {
-  const scoresPath  = path.join(dataDir, `scores_week_${week}.json`);
-  const gamesPath   = path.join(dataDir, `games_week_${week}.json`);
-  const detailPath  = path.join(dataDir, `winners_detail_week_${week}.json`);
-  const winnersPath = path.join(dataDir, `declaredwinners_week_${week}.json`);
+  const scoresPath   = path.join(dataDir, `scores_week_${week}.json`);
+  const gamesPath    = path.join(dataDir, `games_week_${week}.json`);
+  const detailPath   = path.join(dataDir, `winners_detail_week_${week}.json`);
+  const winnersPath  = path.join(dataDir, `declaredwinners_week_${week}.json`);
 
   if (!fs.existsSync(scoresPath) || !fs.existsSync(gamesPath)) {
     console.log(`❌ Missing scores or games file for Week ${week}`);
@@ -702,46 +703,58 @@ function calculateTotalWinners(week) {
   }
 
   const scores = JSON.parse(fs.readFileSync(scoresPath, 'utf8'));
-  const games  = JSON.parse(fs.readFileSync(gamesPath, 'utf8'));
+  const games  = JSON.parse(fs.readFileSync(gamesPath,  'utf8'));
+
+  // Build a quick lookup from (team1,team2) ignoring case/extra spaces.
+  const norm = s => (s || '').toString().trim().toLowerCase();
+  const k = (a,b) => `${norm(a)}__${norm(b)}`;
+
+  const scoreMap = new Map();
+  for (const s of scores) {
+    scoreMap.set(k(s.team1, s.team2), s);
+    // also set reverse key if your scores sometimes flip home/away order
+    scoreMap.set(k(s.team2, s.team1), { team1: s.team2, team2: s.team1, score1: s.score2, score2: s.score1 });
+  }
 
   const detail = [];
   const declaredWinners = [];
 
-  for (const game of games) {
-    const g1 = canonicalName(game.team1);
-    const g2 = canonicalName(game.team2);
-
-    const match = scores.find(s => {
-      const s1 = canonicalName(s.team1);
-      const s2 = canonicalName(s.team2);
-      return (s1 === g1 && s2 === g2) || (s1 === g2 && s2 === g1);
-    });
-
-    if (!match) {
-      console.log(`❌ Could not match score for game: ${game.team1} vs ${game.team2}`);
+  for (const g of games) {
+    const pair = scoreMap.get(k(g.team1, g.team2));
+    if (!pair) {
+      detail.push({
+        team1: g.team1, spread1: g.spread1,
+        team2: g.team2, spread2: g.spread2,
+        note: 'No matching score found'
+      });
       continue;
     }
 
-    const adjusted1 = Number(match.score1) + Number(game.spread1);
-    const raw2 = Number(match.score2);
-
-    let winner = '';
-    if (adjusted1 > raw2) winner = game.team1;
-    else if (adjusted1 < raw2) winner = game.team2;
-    else winner = 'PUSH';
+    const s1 = Number(pair.score1);
+    const s2 = Number(pair.score2);
+    const sp1 = Number(g.spread1 || 0);
+    // Using the game rule: team1 wins if (score1 + spread1) > score2; team2 wins if <
+    const lhs = s1 + sp1;
+    let winner = 'PUSH';
+    if (Number.isFinite(lhs) && Number.isFinite(s2)) {
+      if (lhs > s2)      winner = g.team1;
+      else if (lhs < s2) winner = g.team2;
+    }
 
     detail.push({
-      team1: game.team1, spread1: game.spread1, score1: match.score1,
-      team2: game.team2, spread2: game.spread2, score2: match.score2,
+      team1: g.team1, score1: s1, spread1: sp1,
+      team2: g.team2, score2: s2, spread2: g.spread2 ?? null,
       winner
     });
 
-    if (winner !== 'PUSH') declaredWinners.push(winner);
+    if (winner !== 'PUSH') {
+      declaredWinners.push(winner);
+    }
   }
 
-  fs.writeFileSync(detailPath, JSON.stringify(detail, null, 2));
+  fs.writeFileSync(detailPath,  JSON.stringify(detail,          null, 2));
   fs.writeFileSync(winnersPath, JSON.stringify(declaredWinners, null, 2));
-  console.log(`✅ Week ${week} winners written → winners_detail_week_${week}.json & declaredwinners_week_${week}.json`);
+  console.log(`✅ Wrote winners_detail_week_${week}.json and declaredwinners_week_${week}.json`);
 }
 
 function calculateWinnersFromList(week) {
@@ -755,31 +768,32 @@ function calculateWinnersFromList(week) {
     return;
   }
 
-  const picksData   = JSON.parse(fs.readFileSync(picksFile, 'utf8'));
-  // Canonical compare: normalize winners & picks before matching
-  const winnersSet = new Set((winnersList || []).map(w => canonicalName(w)));
+  const picksData   = JSON.parse(fs.readFileSync(picksFile,   'utf8'));
+  const winnersList = JSON.parse(fs.readFileSync(winnersFile, 'utf8'));
+  const winnersSet  = new Set((winnersList || []).map(w => canonicalName(w)));
 
-  const results = picksData.map(player => {
-    
-      const correct = (player.picks || [])
-        .map(p => canonicalName((p.pick || '').trim()))
-        .filter(cPick => winnersSet.has(cPick));
-      return { player: player.player, correct, total: correct.length };
+  const results = (picksData || []).map(player => {
+    const name = (player.player || '').trim();
+    const chosen = (player.picks || []).map(p => canonicalName((p.pick || '').trim()));
+    const correct = chosen.filter(c => winnersSet.has(c));
+    return { player: name, correct, total: correct.length };
   });
 
   fs.writeFileSync(outputFile, JSON.stringify(results, null, 2));
-  console.log(`✅ winners_week_${week}.json written (player-specific results)`);
+  console.log(`✅ winners_week_${week}.json written (per-player results)`);
 
-  // Update totals
+  // Update cumulative totals
   let existingTotals = {};
   if (fs.existsSync(totalsFile)) {
     try { existingTotals = JSON.parse(fs.readFileSync(totalsFile, 'utf8')); }
     catch { console.warn('⚠️ Failed to read existing totals.json; starting fresh'); }
   }
+
   for (const r of results) {
     const name = (r.player || '').trim();
-    existingTotals[name] = (existingTotals[name] || 0) + r.total;
+    existingTotals[name] = (existingTotals[name] || 0) + (r.total || 0);
   }
+
   fs.writeFileSync(totalsFile, JSON.stringify(existingTotals, null, 2));
   console.log('📊 totals.json updated');
 }
