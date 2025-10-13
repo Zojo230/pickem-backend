@@ -1,3 +1,16 @@
 token.json
 oauth-credentials.json
 sidecar/sidecar.config.json
+# Dependencies
+node_modules/
+
+# Local artifacts / big files
+uploads/
+backups/
+*.zip
+
+# Secrets / credentials
+.env
+oauth-credentials.json
+token.json
+sidecar.config.json
