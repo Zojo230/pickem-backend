@@ -374,41 +374,67 @@ function pickFirst(obj, keys) {
 // Unified auth handler (GET or POST; query, json, or urlencoded)
 function handleAuthenticate(req, res) {
   try {
-    // Merge query and body (body may be json or urlencoded)
     const src = {
       ...(req.query || {}),
       ...(typeof req.body === 'object' ? (req.body || {}) : {})
     };
 
     const name = String(
-      pickFirst(src, ['name','gameName','gamename','player','playerName','username','user'])
-    ).trim();
-    const pin  = String(
-      pickFirst(src, ['pin','PIN','Pin','passcode','password','pwd'])
+      pickFirst(src, ['name', 'gameName', 'gamename', 'player', 'playerName', 'username', 'user'])
     ).trim();
 
-    if (!name || !pin) return res.status(400).json({ error: 'Missing name or pin' });
+    const pin = String(
+      pickFirst(src, ['pin', 'PIN', 'Pin', 'passcode', 'password', 'pwd'])
+    ).trim();
+
+    if (!name || !pin) {
+      return res.status(400).json({ error: 'Missing name or pin' });
+    }
 
     const rosterPath = path.join(dataDir, 'roster.json');
-    if (!fs.existsSync(rosterPath)) return res.status(404).json({ error: 'Roster not found' });
+
+    if (!fs.existsSync(rosterPath)) {
+      return res.status(404).json({ error: 'Roster not found' });
+    }
 
     const roster = JSON.parse(fs.readFileSync(rosterPath, 'utf8'));
-    const norm = s => s.toString().trim().toLowerCase();
 
     const match = Array.isArray(roster) && roster.find(r => {
-      const rname = typeof r === 'string' ? r : (r && (r.name || r.gameName || r.playerName));
-      const rpin  = typeof r === 'string' ? '' : (r && (r.pin || r.PIN || r.passcode || r.password));
-      return rname && norm(rname) === norm(name) && String(rpin ?? '') === String(pin);
+      const rname =
+        typeof r === 'string'
+          ? r
+          : (r && (r.name || r.gameName || r.playerName || r['Game Name'])) || '';
+
+      const rpin =
+        typeof r === 'string'
+          ? ''
+          : (r && (r.pin || r.PIN || r.passcode || r.password)) || '';
+
+      // Game Name is CASE-SENSITIVE; PIN must also match exactly.
+      return (
+        String(rname).trim() === name &&
+        String(rpin).trim() === pin
+      );
     });
 
-    if (!match) return res.status(401).json({ error: 'Invalid name or PIN' });
+    if (!match) {
+      return res.status(401).json({
+        error: 'Invalid Game Name or PIN. Check spelling and capitalization or copy your Game Name from the Roster.'
+      });
+    }
 
     return res.json({
       ok: true,
-      name: (typeof match === 'string' ? match : (match.name || match.gameName || match.playerName))
+      name:
+        typeof match === 'string'
+          ? match
+          : (match.name || match.gameName || match.playerName || match['Game Name'])
     });
+
   } catch (e) {
-    return res.status(500).json({ error: e.message || 'Auth failed' });
+    return res.status(500).json({
+      error: e.message || 'Auth failed'
+    });
   }
 }
 
