@@ -272,7 +272,19 @@ function getPicksVisibilityMode() {
   const m = String(s.picksVisibilityMode || s.mode || 'auto').toLowerCase();
   return ['on','off','auto'].includes(m) ? m : 'auto';
 }
+// ===== Maintenance / Test Mode setting =====
+function getMaintenanceMode() {
+  const s = readSettings();
+  return Boolean(s.maintenanceMode);
+}
 
+function setMaintenanceMode(enabled) {
+  const current = readSettings();
+  writeSettings({
+    ...current,
+    maintenanceMode: Boolean(enabled)
+  });
+}
 function shouldRevealPicksNow(weekNum) {
   const mode = getPicksVisibilityMode();
   if (mode === 'on')  return true;
@@ -280,13 +292,28 @@ function shouldRevealPicksNow(weekNum) {
   return isLockedNow(weekNum); // auto
 }
 
-// Pre-guard: block **submissions** after cutoff (only submit-picks endpoints)
+// Pre-guard: block pick submissions during Maintenance Mode
+// and after the normal Thursday cutoff.
 app.use((req, res, next) => {
   const isSubmit =
     req.method === 'POST' &&
     /^\/(api\/)?submit-picks(\/|$)/i.test(req.path);
+
   if (isSubmit) {
-    const week = Number(req.query.week || req.body?.week) || getCurrentWeekNumber();
+
+    // Maintenance/Test Mode takes priority
+    if (getMaintenanceMode()) {
+      return res.status(503).json({
+        error: 'Shama-Lama is temporarily unavailable while testing is in progress.',
+        maintenanceMode: true
+      });
+    }
+
+    // Normal weekly cutoff protection
+    const week =
+      Number(req.query.week || req.body?.week) ||
+      getCurrentWeekNumber();
+
     if (isLockedNow(week)) {
       return res.status(403).json({
         error: 'Pick submissions are closed.',
@@ -296,6 +323,7 @@ app.use((req, res, next) => {
       });
     }
   }
+
   next();
 });
 
@@ -325,7 +353,36 @@ app.get('/api/picks-visibility', (req, res) => {
   const week = Number(req.query.week) || getCurrentWeekNumber();
   res.json({ mode, revealNow: (mode === 'on') ? true : (mode === 'off') ? false : isLockedNow(week) });
 });
+// ===== Maintenance / Test Mode API =====
 
+// Public read endpoint so IntroPage can check status
+app.get('/api/maintenance-mode', (req, res) => {
+  res.json({
+    maintenanceMode: getMaintenanceMode()
+  });
+});
+
+// Admin-controlled ON/OFF endpoint
+app.post('/api/maintenance-mode', express.json(), (req, res) => {
+  if (!authOk(req)) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const enabled = req.body?.maintenanceMode;
+
+  if (typeof enabled !== 'boolean') {
+    return res.status(400).json({
+      error: 'maintenanceMode must be true or false'
+    });
+  }
+
+  setMaintenanceMode(enabled);
+
+  return res.json({
+    ok: true,
+    maintenanceMode: getMaintenanceMode()
+  });
+});
 app.post('/api/picks-visibility', express.json(), (req, res) => {
   if (!authOk(req)) return res.status(403).json({ error: 'Forbidden' });
   const mode = String(req.body?.mode || '').toLowerCase();
