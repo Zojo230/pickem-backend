@@ -39,6 +39,7 @@ const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 const xlsx = require('xlsx');
+const { sendPicksConfirmation } = require('./emailService');
 
 // ---------- Normalize env paths ASAP ----------
 const sanitizeEnvPath = (v, dflt) =>
@@ -1120,7 +1121,7 @@ app.post('/api/upload/scores', upload.single('file'), (req, res) => {
   res.send(`✅ Scores uploaded and winners calculated for Week ${week}`);
 });
 
-// ---------- Roster upload (Excel) — with Balance ----------
+// ---------- Roster upload (Excel) — with Balance + Email ----------
 app.post('/api/upload/roster', upload.single('file'), (req, res) => {
   const file = req.file;
   if (!file) return res.status(400).send('No file uploaded.');
@@ -1153,8 +1154,14 @@ app.post('/api/upload/roster', upload.single('file'), (req, res) => {
     const header = (raw[0] || []).map(h => h?.toString().trim().toLowerCase());
     const idxName = header.findIndex(h => h === 'name' || h === 'player' || h === 'gamename');
     const idxPin  = header.findIndex(h => h === 'pin' || h === 'passcode' || h === 'password');
+
     // Accept common variants for balance
     const idxBal  = header.findIndex(h => ['balance','paid','payment','amount'].includes(h));
+
+    // Accept common variants for email
+    const idxEmail = header.findIndex(h =>
+      ['email','email address','emailaddress','e-mail','e-mail address'].includes(h)
+    );
 
     if (idxName === -1 || idxPin === -1) {
       return res.status(400).send('Missing "Name" and/or "PIN" columns in roster file.');
@@ -1171,18 +1178,20 @@ app.post('/api/upload/roster', upload.single('file'), (req, res) => {
       const name = row[idxName]?.toString().trim();
       const pin  = row[idxPin]?.toString().trim();
       const bal  = idxBal === -1 ? 0 : toNumber(row[idxBal]);
+      const email = idxEmail === -1 ? '' : (row[idxEmail]?.toString().trim() || '');
 
       if (!name || !pin) return null;
-      return { name, pin, Balance: bal };
+      return { name, pin, Balance: bal, email };
     }).filter(Boolean);
 
     fs.writeFileSync(filePath, JSON.stringify(roster, null, 2));
-    return res.send(`✅ Roster uploaded. ${roster.length} players saved with Balance.`);
+    return res.send(`✅ Roster uploaded. ${roster.length} players saved with Balance and Email.`);
   } catch (err) {
     console.error('❌ Failed to parse roster:', err);
     return res.status(500).send('Failed to process roster file.');
   }
 });
+
 // ---- Auth probe for frontend (Game Name + PIN check; case-sensitive name) ----
 app.post('/api/authenticate', (req, res) => {
   const src = req.body || {};
@@ -1267,12 +1276,42 @@ app.post('/submit-picks/:week', requireValidPlayer, (req, res) => {
     // Append as a new entry (never overwrite)
     data.push({ player: name, pin, picks, week, submittedAt: new Date().toISOString() });
 
+    // SAVE PICKS FIRST
     fs.writeFileSync(filename, JSON.stringify(data, null, 2));
+
+    // Email confirmation is secondary.
+    // A missing address or email failure must never affect the saved picks.
+    try {
+      const rosterPath = path.join(dataDir, 'roster.json');
+      const roster = fs.existsSync(rosterPath)
+        ? JSON.parse(fs.readFileSync(rosterPath, 'utf8') || '[]')
+        : [];
+
+      const playerRecord = roster.find(
+        player => String(player?.name || '').trim() === name
+      );
+
+      const email = String(playerRecord?.email || '').trim();
+
+      sendPicksConfirmation({
+        email,
+        playerName: name,
+        week,
+        picks: picks.map(p => p.pick)
+      });
+    } catch (emailErr) {
+      console.error(
+        `❌ Picks were saved, but email setup failed for ${name}:`,
+        emailErr.message
+      );
+    }
+
     return res.json({ success: true });
   } catch {
     return res.status(500).json({ success: false, error: 'Failed to save picks.' });
   }
 });
+
 // --- Compatibility alias so the frontend can POST /api/submit-picks with { week, player, pin, picks }
 app.post('/api/submit-picks', async (req, res) => {
   try {
@@ -1353,7 +1392,36 @@ app.post('/api/submit-picks', async (req, res) => {
       submittedAt: new Date().toISOString(),
     });
 
+    // SAVE PICKS FIRST
     fs.writeFileSync(filename, JSON.stringify(data, null, 2));
+
+    // Email confirmation is secondary.
+    // A missing address or email failure must never affect the saved picks.
+    try {
+      const rosterPath = path.join(dataDir, 'roster.json');
+      const roster = fs.existsSync(rosterPath)
+        ? JSON.parse(fs.readFileSync(rosterPath, 'utf8') || '[]')
+        : [];
+
+      const playerRecord = roster.find(
+        player => String(player?.name || '').trim() === name
+      );
+
+      const email = String(playerRecord?.email || '').trim();
+
+      sendPicksConfirmation({
+        email,
+        playerName: name,
+        week,
+        picks: picks.map(p => p.pick)
+      });
+    } catch (emailErr) {
+      console.error(
+        `❌ Picks were saved, but email setup failed for ${name}:`,
+        emailErr.message
+      );
+    }
+
     return res.json({ success: true });
   } catch (err) {
     console.error('submit-picks alias error:', err);
