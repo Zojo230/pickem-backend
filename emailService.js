@@ -46,7 +46,61 @@ Shama-Lama Football Challenge`
     );
   }
 }
+async function sendWeeklyResults({
+  email,
+  playerName,
+  week,
+  picks,
+  weeklyScore,
+  overallScore
+}) {
+  if (!email) {
+    console.log(`⚠️ No email address found for ${playerName}. Weekly results not sent.`);
+    return;
+  }
 
+    const picksList = (picks || [])
+    .map((pick, index) =>
+    `${index + 1}. ${pick.team} — ${pick.result}`
+  )
+  .join('\n');   
+
+  const mailOptions = {
+    from: `"Shama-Lama Football Challenge" <${process.env.EMAIL_USER}>`,
+    to: email,
+    subject: `Shama-Lama Week ${week} Results - ${weeklyScore} Points`,
+    text:
+`Shama-Lama Football Challenge
+Week ${week} Results
+
+Player: ${playerName}
+
+Your Picks:
+${picksList}
+
+
+Week ${week} Score: ${weeklyScore}
+Overall Score: ${overallScore}
+
+Check out the Chat page at shama-lama.com and join the conversation!
+
+Shama-Lama Football Challenge`
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+
+    console.log(
+      `✅ Weekly results email sent to ${playerName} at ${email}: ${info.messageId}`
+    );
+  } catch (err) {
+    console.error(
+      `❌ Weekly results email failed for ${playerName}:`,
+      err.message
+    );
+  }
+}
 module.exports = {
-  sendPicksConfirmation
+  sendPicksConfirmation,
+  sendWeeklyResults
 };

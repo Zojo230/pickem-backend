@@ -39,7 +39,10 @@ const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 const xlsx = require('xlsx');
-const { sendPicksConfirmation } = require('./emailService');
+const {
+  sendPicksConfirmation,
+  sendWeeklyResults
+} = require('./emailService');
 
 // ---------- Normalize env paths ASAP ----------
 const sanitizeEnvPath = (v, dflt) =>
@@ -881,7 +884,72 @@ function calculateWinnersFromList(week) {
   fs.writeFileSync(totalsFile, JSON.stringify(existingTotals, null, 2));
   console.log('📊 totals.json updated');
 }
+// ---------- Weekly Results Email ----------
+async function emailWeeklyResults(week) {
+  try {
+    const rosterPath  = path.join(dataDir, 'roster.json');
+    const picksPath   = path.join(dataDir, `picks_week_${week}.json`);
+    const winnersPath = path.join(dataDir, `winners_week_${week}.json`);
+    const totalsPath  = path.join(dataDir, 'totals.json');
 
+    if (
+      !fs.existsSync(rosterPath) ||
+      !fs.existsSync(picksPath) ||
+      !fs.existsSync(winnersPath) ||
+      !fs.existsSync(totalsPath)
+    ) {
+      console.warn(`⚠️ Weekly results email skipped for Week ${week}: required file missing.`);
+      return;
+    }
+
+    const roster  = JSON.parse(fs.readFileSync(rosterPath, 'utf8') || '[]');
+    const picks   = JSON.parse(fs.readFileSync(picksPath, 'utf8') || '[]');
+    const results = JSON.parse(fs.readFileSync(winnersPath, 'utf8') || '[]');
+    const totals  = JSON.parse(fs.readFileSync(totalsPath, 'utf8') || '{}');
+
+    for (const playerResult of results) {
+      const playerName = String(playerResult?.player || '').trim();
+      if (!playerName) continue;
+
+      const rosterPlayer = roster.find(
+        r => String(r?.name || '').trim() === playerName
+      );
+
+      const playerPicks = picks.find(
+        p => String(p?.player || '').trim() === playerName
+      );
+
+      const email = String(rosterPlayer?.email || '').trim();
+
+      const correctPicks = new Set(
+  (playerResult?.correct || []).map(p => canonicalName(p))
+);
+
+      const picksList = Array.isArray(playerPicks?.picks)
+        ? playerPicks.picks
+        .map(p => p?.pick)
+        .filter(Boolean)
+        .map(pick => ({
+        team: pick,
+        result: correctPicks.has(canonicalName(pick)) ? 'WIN' : 'LOSS'
+      }))
+  : [];
+
+      await sendWeeklyResults({
+        email,
+        playerName,
+        week,
+        picks: picksList,
+        weeklyScore: Number(playerResult?.total || 0),
+        overallScore: Number(totals[playerName] || 0)
+        });
+    }
+
+    console.log(`✅ Week ${week} results emails completed.`);
+  } catch (err) {
+    console.error(`❌ Week ${week} results email routine failed:`, err.message);
+  }
+}
 // ---------- JSON upload (games|scores) — with scores verify/normalize ----------
 app.post('/api/upload/json-direct', upload.single('file'), async (req, res) => {
   try {
@@ -956,6 +1024,7 @@ app.post('/api/upload/json-direct', upload.single('file'), async (req, res) => {
       try {
         calculateTotalWinners(week);
         calculateWinnersFromList(week);
+        await emailWeeklyResults(week);
       } catch (e) { console.warn('Auto-calc failed:', e?.message); }
     }
 
