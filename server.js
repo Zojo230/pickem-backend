@@ -1360,13 +1360,33 @@ app.post('/submit-picks/:week', requireValidPlayer, (req, res) => {
         player => String(player?.name || '').trim() === name
       );
 
-      const email = String(playerRecord?.email || '').trim();
+        const email = String(playerRecord?.email || '').trim();
+        const gamesPath = path.join(dataDir, `games_week_${week}.json`);
+        const games = fs.existsSync(gamesPath)
+      ? JSON.parse(fs.readFileSync(gamesPath, 'utf8'))
+      : [];
 
+      const emailPicks = picks.map(p => {
+        const game = games[p.gameIndex];
+        const team = p.pick;
+
+        let spread = '';
+
+      if (game) {
+      if (canonicalName(team) === canonicalName(game.team1)) {
+        spread = game.spread1;
+        } else if (canonicalName(team) === canonicalName(game.team2)) {
+        spread = game.spread2;
+      }
+     }
+
+      return { team, spread };
+    });
       sendPicksConfirmation({
         email,
         playerName: name,
         week,
-        picks: picks.map(p => p.pick)
+        picks: emailPicks
       });
     } catch (emailErr) {
       console.error(

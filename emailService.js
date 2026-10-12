@@ -14,8 +14,17 @@ async function sendPicksConfirmation({ email, playerName, week, picks }) {
   }
 
   const picksList = picks
-    .map((pick, index) => `${index + 1}. ${pick}`)
-    .join('\n');
+  .map((pick, index) => {
+    if (typeof pick === 'string') {
+      return `${index + 1}. ${pick}`;
+    }
+
+    const spread = pick.spread ?? '';
+    const spreadText = spread !== '' ? ` (${spread > 0 ? '+' : ''}${spread})` : '';
+
+    return `${index + 1}. ${pick.team}${spreadText}`;
+  })
+  .join('\n');
 
   const mailOptions = {
     from: `"Shama-Lama Football Challenge" <${process.env.EMAIL_USER}>`,
