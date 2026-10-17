@@ -1502,7 +1502,23 @@ app.post('/api/submit-picks', async (req, res) => {
         email,
         playerName: name,
         week,
-        picks: picks.map(p => p.pick)
+        picks: picks.map(p => {
+          const gamesPath = path.join(dataDir, `games_week_${week}.json`);
+          const games = JSON.parse(fs.readFileSync(gamesPath, 'utf8'));
+          const game = games[p.gameIndex];
+
+          let spread = null;
+
+          if (game) {
+          if (canonicalName(p.pick) === canonicalName(game.team1)) {
+          spread = game.spread1;
+          } else if (canonicalName(p.pick) === canonicalName(game.team2)) {
+          spread = game.spread2;
+        }
+      }
+
+        return { team: p.pick, spread };
+      })
       });
     } catch (emailErr) {
       console.error(
